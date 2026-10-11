@@ -150,7 +150,7 @@ pub struct FuncDef {
 }
 
 #[derive(Debug, Clone)]
-pub struct FuncDecl {
+pub struct ExternFuncDecl {
     pub id: NodeId,
     pub header: FunctionHeader,
 }
@@ -175,7 +175,7 @@ pub struct ConfigDecl {
 #[derive(Debug, Clone)]
 pub enum Item {
     FuncDef(FuncDef),
-    FuncDecl(FuncDecl),
+    ExternFuncDecl(ExternFuncDecl),
     ConstDecl(ConstDecl),
     ConfigDecl(ConfigDecl),
 }

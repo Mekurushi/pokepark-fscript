@@ -167,7 +167,7 @@ pub fn declare_items(
             ast::Item::FuncDef(func) => {
                 declare_function(&func.header, scope, symbols)?;
             }
-            ast::Item::FuncDecl(declaration) => {
+            ast::Item::ExternFuncDecl(declaration) => {
                 validate_unique_params(&declaration.header.params)?;
                 declare_function(&declaration.header, scope, symbols)?;
             }

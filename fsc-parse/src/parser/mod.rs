@@ -1,7 +1,7 @@
 pub(crate) mod error;
 use crate::ast::{
-    BinOp, ConfigDecl, ConstDecl, Expr, ExprKind, FuncDecl, FuncDef, FunctionHeader, Item, Param,
-    Stmt, Ty, UnaryOp,
+    BinOp, ConfigDecl, ConstDecl, Expr, ExprKind, ExternFuncDecl, FuncDef, FunctionHeader, Item,
+    Param, Stmt, Ty, UnaryOp,
 };
 use crate::ast::{NodeId, StmtKind};
 use crate::lexer::token::{Token, TokenKind};
@@ -144,7 +144,9 @@ impl Parser {
     }
     pub fn parse_item(&mut self) -> ParseResult<Item> {
         match self.ts.peek() {
-            Some(TokenKind::KwExtern) => self.parse_function_declaration().map(Item::FuncDecl),
+            Some(TokenKind::KwExtern) => self
+                .parse_extern_function_declaration()
+                .map(Item::ExternFuncDecl),
             Some(TokenKind::KwConst) => self.parse_const_declaration().map(Item::ConstDecl),
             Some(TokenKind::KwConfig) => self.parse_config_declaration().map(Item::ConfigDecl),
             Some(TokenKind::KwExport) => self.parse_exported_function().map(Item::FuncDef),
@@ -174,12 +176,12 @@ impl Parser {
         })
     }
 
-    fn parse_function_declaration(&mut self) -> ParseResult<FuncDecl> {
+    fn parse_extern_function_declaration(&mut self) -> ParseResult<ExternFuncDecl> {
         self.ts.expect(&TokenKind::KwExtern, "`extern`")?;
         let header = self.parse_function_header()?;
         self.ts.expect(&TokenKind::Semicolon, "`;`")?;
 
-        Ok(FuncDecl {
+        Ok(ExternFuncDecl {
             id: self.ids.alloc(),
             header,
         })

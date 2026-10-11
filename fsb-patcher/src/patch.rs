@@ -27,7 +27,7 @@ fn classify_functions(
         .iter()
         .filter_map(|item| match item {
             Item::FuncDef(function) => Some(function),
-            Item::FuncDecl(_) | Item::ConstDecl(_) | Item::ConfigDecl(_) => None,
+            Item::ExternFuncDecl(_) | Item::ConstDecl(_) | Item::ConfigDecl(_) => None,
         })
         .map(|function| {
             let patch_kind = match symbols.get_function(&function.header.name) {
@@ -92,7 +92,7 @@ fn validate_external_declarations(
 ) -> Result<(), PatchFailure> {
     for declaration in script.items.iter().filter_map(|item| match item {
         Item::FuncDef(_) => None,
-        Item::FuncDecl(declaration) => Some(declaration),
+        Item::ExternFuncDecl(declaration) => Some(declaration),
         Item::ConstDecl(_) | Item::ConfigDecl(_) => None,
     }) {
         let address = symbols
