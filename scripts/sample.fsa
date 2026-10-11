@@ -1,28 +1,28 @@
-private fn addition(a, b):
+fn addition:
     grow_stack 0x1
     load_arg 0x0
     load_arg 0x1
     add
-    retv -0x3
+    retv 0x3
 
-private fn substraction(a, b):
+fn substraction:
     grow_stack 0x1
     load_arg 0x0
     load_arg 0x1
     sub
-    retv -0x2
+    retv 0x2
 
-fn entry():
+export fn entry:
     push 0x1
     push 0x1
     call addition
-    ret -0x0
+    ret 0x0
 
-fn caller():
+export fn caller:
     call call_forward
-    ret -0x0
+    ret 0x0
 
-fn jumper():
+export fn jumper:
     push 0x0
     jmp target
     push 0x1
@@ -30,10 +30,10 @@ target:
     push 0x2
     ret 0x0
 
-fn string_loader():
+export fn string_loader:
     push 0x1
     lstr "test"
-    ret -0x0
+    ret 0x0
 
-private fn call_forward():
-    ret -0x0
+fn call_forward:
+    ret 0x0

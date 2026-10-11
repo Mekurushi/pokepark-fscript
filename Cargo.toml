@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "fsa",
     "fsc_assembler",
     "fsc_diagnostics",
     "fsc_parse",
