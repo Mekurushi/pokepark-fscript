@@ -1,8 +1,8 @@
 mod error;
 mod value;
 
-use crate::checked::CheckedScript;
-use crate::symbol::{ConstValue, SymbolKind};
+use crate::check::CheckedScript;
+use crate::check::symbols::{ConstValue, SymbolKind};
 use std::collections::HashSet;
 
 pub use error::{BindError, BindErrors};

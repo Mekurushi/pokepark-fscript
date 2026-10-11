@@ -1,7 +1,7 @@
+use super::resolution::Resolutions;
+use super::symbols::{SymbolId, SymbolKind, SymbolTable};
+use super::type_check::ExpressionTypes;
 use crate::bind::{ConfigRequirement, ConfigType};
-use crate::resolve::Resolutions;
-use crate::symbol::{SymbolId, SymbolKind, SymbolTable};
-use crate::type_check::ExpressionTypes;
 use fsc_parse::ast;
 
 pub struct CheckedScript {

@@ -1,8 +1,8 @@
 use crate::bind::BoundScript;
-use crate::checked::{CheckedFunction, CheckedScript};
+use crate::check::resolution::Resolutions;
+use crate::check::symbols::{ConstValue, SymbolId, SymbolKind, SymbolTable};
+use crate::check::{CheckedFunction, CheckedScript};
 use crate::error::{SemaError, SemaResult};
-use crate::resolve::Resolutions;
-use crate::symbol::{ConstValue, SymbolId, SymbolKind, SymbolTable};
 use crate::thir::{self, LocalId, Place, ProjectionElem, Vec3Field};
 use crate::types::Ty;
 use fsc_parse::ast::{self, Expr, Stmt};

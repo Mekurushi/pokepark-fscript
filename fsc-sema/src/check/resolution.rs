@@ -1,5 +1,5 @@
+use super::symbols::{ConstValue, ParamInfo, Symbol, SymbolId, SymbolKind, SymbolTable};
 use crate::error::{SemaError, SemaResult};
-use crate::symbol::{ConstValue, ParamInfo, Symbol, SymbolId, SymbolKind, SymbolTable};
 use crate::types::Ty;
 use fsc_diagnostics::Span;
 use fsc_parse::ast;

@@ -1,7 +1,7 @@
-use crate::checked::CheckedFunction;
+use super::model::CheckedFunction;
+use super::resolution::{Resolutions, ResolvedFunction};
+use super::symbols::{SymbolId, SymbolKind, SymbolTable};
 use crate::error::{SemaError, SemaResult};
-use crate::resolve::{Resolutions, ResolvedFunction};
-use crate::symbol::{SymbolId, SymbolKind, SymbolTable};
 use crate::types::Ty;
 use fsc_diagnostics::Span;
 use fsc_parse::ast::{self, BinOp, Expr, ExprKind, NodeId, UnaryOp};
