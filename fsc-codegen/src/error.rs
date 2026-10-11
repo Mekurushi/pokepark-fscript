@@ -1,5 +1,5 @@
 use fsb_assembler::error::AssemblerError;
-use fsc_sema::hir::LocalId;
+use fsc_sema::thir::LocalId;
 
 #[derive(Debug, PartialEq)]
 pub enum CodegenError {

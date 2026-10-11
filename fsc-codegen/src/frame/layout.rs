@@ -1,6 +1,6 @@
 use crate::error::{CodegenError, CodegenResult};
 use crate::frame::{FrameLayout, StackAllocation, StackSlot};
-use fsc_sema::hir::{FuncDef, LocalKind};
+use fsc_sema::thir::{FuncDef, LocalKind};
 use std::collections::HashMap;
 
 pub(crate) fn plan_frame(function: &FuncDef) -> CodegenResult<FrameLayout> {

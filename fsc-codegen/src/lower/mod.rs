@@ -4,11 +4,11 @@ use crate::error::{CodegenError, CodegenResult};
 use crate::frame::{FrameLayout, plan_frame};
 use crate::lower::label_ctx::LabelCtx;
 use fsb_assembler::Assembler;
-use fsc_sema::hir::{BinOp, Expr, FuncDef, Stmt, SysCallArg, UnaryOp};
+use fsc_sema::thir::{BinOp, Expr, FuncDef, Stmt, SysCallArg, UnaryOp};
 use fsc_sema::types::Ty;
 
-struct FunctionCx<'hir, 'asm> {
-    function: &'hir FuncDef,
+struct FunctionCx<'thir, 'asm> {
+    function: &'thir FuncDef,
     frame: FrameLayout,
     labels: LabelCtx,
     asm: &'asm mut Assembler,
@@ -61,7 +61,7 @@ fn lower_stmt(stmt: &Stmt, cx: &mut FunctionCx<'_, '_>) -> CodegenResult<()> {
         Stmt::VarDecl { local, init } => {
             if let Some(expr) = init {
                 lower_expr(expr, cx)?;
-                let slot = cx.frame.resolve(&fsc_sema::hir::Place::new(*local))?;
+                let slot = cx.frame.resolve(&fsc_sema::thir::Place::new(*local))?;
                 cx.asm.emit_store_arg(slot.0);
             }
             Ok(())

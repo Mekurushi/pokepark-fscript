@@ -166,12 +166,12 @@ pub fn patch(request: PatchRequest<'_>) -> Result<PatchArtifact, PatchFailure> {
     validate_external_declarations(checked.ast(), request.symbols, original_code_len)?;
     let bound = fsc_sema::bind_configs(checked, request.config_values)
         .map_err(|errors| PatchFailure::InvalidPatchSource(errors.into_diagnostics()))?;
-    let hir = fsc_sema::lower(bound)
+    let thir = fsc_sema::lower(bound)
         .map_err(|error| PatchFailure::InvalidPatchSource(vec![error.into()]))?;
 
     let (script_name, mut original_unit) = AssemblyUnit::from_binary(binary)?;
     let mut assembler = Assembler::new();
-    fsc_codegen::compile(&hir, &mut assembler).map_err(|error| {
+    fsc_codegen::compile(&thir, &mut assembler).map_err(|error| {
         PatchFailure::InvalidPatchSource(vec![Diagnostic::error(Stage::Codegen, error.to_string())])
     })?;
     let mut patch_unit = assembler.into_unit();

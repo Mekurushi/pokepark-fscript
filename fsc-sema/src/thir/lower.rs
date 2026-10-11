@@ -1,15 +1,15 @@
 use crate::bind::BoundScript;
 use crate::checked::{CheckedFunction, CheckedScript};
 use crate::error::{SemaError, SemaResult};
-use crate::hir::{self, LocalId, Place, ProjectionElem, Vec3Field};
 use crate::resolve::Resolutions;
 use crate::symbol::{ConstValue, SymbolId, SymbolKind, SymbolTable};
+use crate::thir::{self, LocalId, Place, ProjectionElem, Vec3Field};
 use crate::types::Ty;
 use fsc_parse::ast::{self, Expr, Stmt};
 use std::collections::HashMap;
 
 struct LocalMap {
-    declarations: Vec<hir::Local>,
+    declarations: Vec<thir::Local>,
     by_symbol: HashMap<SymbolId, LocalId>,
 }
 
@@ -21,14 +21,14 @@ impl LocalMap {
         for &symbol_id in resolutions.frame_symbols() {
             let symbol = symbols.get(symbol_id);
             let kind = match symbol.kind {
-                SymbolKind::Param { .. } => hir::LocalKind::Parameter,
-                SymbolKind::Local => hir::LocalKind::Variable,
+                SymbolKind::Param { .. } => thir::LocalKind::Parameter,
+                SymbolKind::Local => thir::LocalKind::Variable,
                 SymbolKind::Const { .. } | SymbolKind::Config | SymbolKind::Function { .. } => {
                     continue;
                 }
             };
             let local = LocalId::new(declarations.len() as u32);
-            declarations.push(hir::Local {
+            declarations.push(thir::Local {
                 id: local,
                 ty: symbol.ty.clone(),
                 kind,
@@ -57,7 +57,7 @@ impl LocalMap {
             })
     }
 
-    fn into_declarations(self) -> Vec<hir::Local> {
+    fn into_declarations(self) -> Vec<thir::Local> {
         self.declarations
     }
 }
@@ -77,7 +77,7 @@ impl<'a> LoweringContext<'a> {
         }
     }
 
-    fn lower_fn(self) -> SemaResult<hir::FuncDef> {
+    fn lower_fn(self) -> SemaResult<thir::FuncDef> {
         let function = self.symbols.get(self.checked.symbol);
         let SymbolKind::Function { ret_ty, .. } = &function.kind else {
             return Err(SemaError::MissingFunctionSignature {
@@ -89,10 +89,10 @@ impl<'a> LoweringContext<'a> {
         let mut body = self.lower_stmts(&self.checked.function.body)?;
 
         if ret_ty == Ty::Void && stmts_can_fall_through(&body) {
-            body.push(hir::Stmt::ReturnVoid);
+            body.push(thir::Stmt::ReturnVoid);
         }
 
-        Ok(hir::FuncDef {
+        Ok(thir::FuncDef {
             name: self.checked.function.header.name.clone(),
             exported: self.checked.function.exported,
             ret_ty,
@@ -101,17 +101,17 @@ impl<'a> LoweringContext<'a> {
         })
     }
 
-    fn lower_stmts(&self, stmts: &[Stmt]) -> SemaResult<Vec<hir::Stmt>> {
+    fn lower_stmts(&self, stmts: &[Stmt]) -> SemaResult<Vec<thir::Stmt>> {
         stmts.iter().map(|stmt| self.lower_stmt(stmt)).collect()
     }
 
-    fn lower_stmt(&self, stmt: &Stmt) -> SemaResult<hir::Stmt> {
+    fn lower_stmt(&self, stmt: &Stmt) -> SemaResult<thir::Stmt> {
         match &stmt.kind {
             ast::StmtKind::Return(expr) => match expr {
-                Some(expr) => Ok(hir::Stmt::Return(self.lower_expr(expr)?)),
-                None => Ok(hir::Stmt::ReturnVoid),
+                Some(expr) => Ok(thir::Stmt::Return(self.lower_expr(expr)?)),
+                None => Ok(thir::Stmt::ReturnVoid),
             },
-            ast::StmtKind::Break => Ok(hir::Stmt::Break),
+            ast::StmtKind::Break => Ok(thir::Stmt::Break),
             ast::StmtKind::VarDecl { init, .. } => {
                 let hir_init = init
                     .as_ref()
@@ -123,12 +123,12 @@ impl<'a> LoweringContext<'a> {
                     .locals
                     .local_for_symbol(symbol_id, &symbol.name, stmt.span)?;
 
-                Ok(hir::Stmt::VarDecl {
+                Ok(thir::Stmt::VarDecl {
                     local,
                     init: hir_init,
                 })
             }
-            ast::StmtKind::Assign { target, expr } => Ok(hir::Stmt::Assign {
+            ast::StmtKind::Assign { target, expr } => Ok(thir::Stmt::Assign {
                 target: self.lower_place(target)?,
                 value: self.lower_expr(expr)?,
             }),
@@ -136,7 +136,7 @@ impl<'a> LoweringContext<'a> {
                 cond,
                 then_body,
                 else_body,
-            } => Ok(hir::Stmt::If {
+            } => Ok(thir::Stmt::If {
                 cond: self.lower_expr(cond)?,
                 then_body: self.lower_stmts(then_body)?,
                 else_body: else_body
@@ -144,31 +144,31 @@ impl<'a> LoweringContext<'a> {
                     .map(|body| self.lower_stmts(body))
                     .transpose()?,
             }),
-            ast::StmtKind::While { cond, body } => Ok(hir::Stmt::While {
+            ast::StmtKind::While { cond, body } => Ok(thir::Stmt::While {
                 cond: self.lower_expr(cond)?,
                 body: self.lower_stmts(body)?,
             }),
-            ast::StmtKind::ExprStmt(expr) => Ok(hir::Stmt::ExprStmt(self.lower_expr(expr)?)),
-            ast::StmtKind::Pause(expr) => Ok(hir::Stmt::Pause(self.lower_expr(expr)?)),
+            ast::StmtKind::ExprStmt(expr) => Ok(thir::Stmt::ExprStmt(self.lower_expr(expr)?)),
+            ast::StmtKind::Pause(expr) => Ok(thir::Stmt::Pause(self.lower_expr(expr)?)),
         }
     }
 
-    fn lower_expr(&self, expr: &Expr) -> SemaResult<hir::Expr> {
+    fn lower_expr(&self, expr: &Expr) -> SemaResult<thir::Expr> {
         match &expr.kind {
-            ast::ExprKind::IntLit(v) => Ok(hir::Expr::IntLit {
+            ast::ExprKind::IntLit(v) => Ok(thir::Expr::IntLit {
                 value: *v,
                 ty: Ty::Int,
             }),
-            ast::ExprKind::FloatLit(v) => Ok(hir::Expr::FloatLit {
+            ast::ExprKind::FloatLit(v) => Ok(thir::Expr::FloatLit {
                 value: *v,
                 ty: Ty::Float,
             }),
-            ast::ExprKind::StringLit(v) => Ok(hir::Expr::StrLit {
+            ast::ExprKind::StringLit(v) => Ok(thir::Expr::StrLit {
                 value: v.clone(),
                 ty: Ty::Int,
             }),
 
-            ast::ExprKind::BoolLit(v) => Ok(hir::Expr::BoolLit {
+            ast::ExprKind::BoolLit(v) => Ok(thir::Expr::BoolLit {
                 value: *v,
                 ty: Ty::Bool,
             }),
@@ -186,7 +186,7 @@ impl<'a> LoweringContext<'a> {
                         let local =
                             self.locals
                                 .local_for_symbol(symbol_id, &symbol.name, expr.span)?;
-                        Ok(hir::Expr::Load {
+                        Ok(thir::Expr::Load {
                             place: Place::new(local),
                             ty: symbol.ty.clone(),
                         })
@@ -206,7 +206,7 @@ impl<'a> LoweringContext<'a> {
                     .get(expr.id)
                     .cloned()
                     .ok_or(SemaError::MissingExpressionType { span: expr.span })?;
-                Ok(hir::Expr::Load {
+                Ok(thir::Expr::Load {
                     place: self.lower_place(expr)?,
                     ty,
                 })
@@ -219,7 +219,7 @@ impl<'a> LoweringContext<'a> {
                     .get(expr.id)
                     .cloned()
                     .ok_or(SemaError::MissingExpressionType { span: expr.span })?;
-                Ok(hir::Expr::BinOp {
+                Ok(thir::Expr::BinOp {
                     op: lower_binop(op),
                     lhs: Box::new(self.lower_expr(lhs)?),
                     rhs: Box::new(self.lower_expr(rhs)?),
@@ -234,7 +234,7 @@ impl<'a> LoweringContext<'a> {
                     .get(expr.id)
                     .cloned()
                     .ok_or(SemaError::MissingExpressionType { span: expr.span })?;
-                Ok(hir::Expr::Unary {
+                Ok(thir::Expr::Unary {
                     op: lower_unaryop(op),
                     expr: Box::new(self.lower_expr(inner)?),
                     ty,
@@ -249,7 +249,7 @@ impl<'a> LoweringContext<'a> {
                     .cloned()
                     .ok_or(SemaError::MissingExpressionType { span: expr.span })?;
 
-                Ok(hir::Expr::Call {
+                Ok(thir::Expr::Call {
                     callee: callee.clone(),
                     args: args
                         .iter()
@@ -265,16 +265,16 @@ impl<'a> LoweringContext<'a> {
                     .map(
                         |argument| match self.checked.expression_types.get(argument.id) {
                             Some(Ty::Vec3) => {
-                                self.lower_place(argument).map(hir::SysCallArg::StackRef)
+                                self.lower_place(argument).map(thir::SysCallArg::StackRef)
                             }
-                            _ => self.lower_expr(argument).map(hir::SysCallArg::Value),
+                            _ => self.lower_expr(argument).map(thir::SysCallArg::Value),
                         },
                     )
                     .collect::<Result<_, _>>()?;
 
                 let subtype = lowered_args.len() as u8;
 
-                Ok(hir::Expr::SysCall {
+                Ok(thir::Expr::SysCall {
                     page,
                     func,
                     subtype,
@@ -322,7 +322,7 @@ impl<'a> LoweringContext<'a> {
     }
 }
 
-pub(crate) fn lower_script(bound: BoundScript) -> SemaResult<hir::Script> {
+pub(crate) fn lower_script(bound: BoundScript) -> SemaResult<thir::Script> {
     let BoundScript(checked) = bound;
     let CheckedScript {
         functions, symbols, ..
@@ -332,51 +332,51 @@ pub(crate) fn lower_script(bound: BoundScript) -> SemaResult<hir::Script> {
         .map(|checked| {
             LoweringContext::new(checked, &symbols)
                 .lower_fn()
-                .map(hir::Item::FuncDef)
+                .map(thir::Item::FuncDef)
         })
         .collect::<SemaResult<_>>()?;
 
-    Ok(hir::Script { items })
+    Ok(thir::Script { items })
 }
 
-fn stmts_can_fall_through(stmts: &[hir::Stmt]) -> bool {
+fn stmts_can_fall_through(stmts: &[thir::Stmt]) -> bool {
     stmts.iter().all(stmt_can_fall_through)
 }
 
-fn stmt_can_fall_through(stmt: &hir::Stmt) -> bool {
+fn stmt_can_fall_through(stmt: &thir::Stmt) -> bool {
     match stmt {
-        hir::Stmt::Return(_) | hir::Stmt::ReturnVoid | hir::Stmt::Break => false,
-        hir::Stmt::If {
+        thir::Stmt::Return(_) | thir::Stmt::ReturnVoid | thir::Stmt::Break => false,
+        thir::Stmt::If {
             then_body,
             else_body: Some(else_body),
             ..
         } => stmts_can_fall_through(then_body) || stmts_can_fall_through(else_body),
-        hir::Stmt::If {
+        thir::Stmt::If {
             else_body: None, ..
         }
-        | hir::Stmt::While { .. }
-        | hir::Stmt::VarDecl { .. }
-        | hir::Stmt::Assign { .. }
-        | hir::Stmt::ExprStmt(_)
-        | hir::Stmt::Pause(_) => true,
+        | thir::Stmt::While { .. }
+        | thir::Stmt::VarDecl { .. }
+        | thir::Stmt::Assign { .. }
+        | thir::Stmt::ExprStmt(_)
+        | thir::Stmt::Pause(_) => true,
     }
 }
 
-fn lower_const_value(value: &ConstValue) -> hir::Expr {
+fn lower_const_value(value: &ConstValue) -> thir::Expr {
     match value {
-        ConstValue::Int(value) => hir::Expr::IntLit {
+        ConstValue::Int(value) => thir::Expr::IntLit {
             value: *value,
             ty: Ty::Int,
         },
-        ConstValue::Float(value) => hir::Expr::FloatLit {
+        ConstValue::Float(value) => thir::Expr::FloatLit {
             value: *value,
             ty: Ty::Float,
         },
-        ConstValue::Bool(value) => hir::Expr::BoolLit {
+        ConstValue::Bool(value) => thir::Expr::BoolLit {
             value: *value,
             ty: Ty::Bool,
         },
-        ConstValue::Str(value) => hir::Expr::StrLit {
+        ConstValue::Str(value) => thir::Expr::StrLit {
             value: value.clone(),
             ty: Ty::Int,
         },
@@ -407,29 +407,29 @@ fn extract_syscall_u16(expr: &Expr) -> SemaResult<u16> {
     }
 }
 
-fn lower_unaryop(op: &ast::UnaryOp) -> hir::UnaryOp {
+fn lower_unaryop(op: &ast::UnaryOp) -> thir::UnaryOp {
     match op {
-        ast::UnaryOp::Not => hir::UnaryOp::Not,
-        ast::UnaryOp::Neg => hir::UnaryOp::Neg,
+        ast::UnaryOp::Not => thir::UnaryOp::Not,
+        ast::UnaryOp::Neg => thir::UnaryOp::Neg,
     }
 }
 
-fn lower_binop(op: &ast::BinOp) -> hir::BinOp {
+fn lower_binop(op: &ast::BinOp) -> thir::BinOp {
     match op {
-        ast::BinOp::Add => hir::BinOp::Add,
-        ast::BinOp::Sub => hir::BinOp::Sub,
-        ast::BinOp::Mul => hir::BinOp::Mul,
-        ast::BinOp::Div => hir::BinOp::Div,
+        ast::BinOp::Add => thir::BinOp::Add,
+        ast::BinOp::Sub => thir::BinOp::Sub,
+        ast::BinOp::Mul => thir::BinOp::Mul,
+        ast::BinOp::Div => thir::BinOp::Div,
 
         // comparison
-        ast::BinOp::Lt => hir::BinOp::Lt,
-        ast::BinOp::Gt => hir::BinOp::Gt,
-        ast::BinOp::Le => hir::BinOp::Le,
-        ast::BinOp::Ge => hir::BinOp::Ge,
-        ast::BinOp::Eq => hir::BinOp::Eq,
-        ast::BinOp::Neq => hir::BinOp::Neq,
+        ast::BinOp::Lt => thir::BinOp::Lt,
+        ast::BinOp::Gt => thir::BinOp::Gt,
+        ast::BinOp::Le => thir::BinOp::Le,
+        ast::BinOp::Ge => thir::BinOp::Ge,
+        ast::BinOp::Eq => thir::BinOp::Eq,
+        ast::BinOp::Neq => thir::BinOp::Neq,
         // logical
-        ast::BinOp::And => hir::BinOp::And,
-        ast::BinOp::Or => hir::BinOp::Or,
+        ast::BinOp::And => thir::BinOp::And,
+        ast::BinOp::Or => thir::BinOp::Or,
     }
 }

@@ -1,7 +1,7 @@
 mod layout;
 
 use crate::error::{CodegenError, CodegenResult};
-use fsc_sema::hir::{LocalId, Place, ProjectionElem};
+use fsc_sema::thir::{LocalId, Place, ProjectionElem};
 use std::collections::HashMap;
 
 pub(crate) use layout::plan_frame;

@@ -1,7 +1,7 @@
 use crate::error::CodegenResult;
 use crate::lower::lower_func;
 use fsb_assembler::Assembler;
-use fsc_sema::hir::{FuncDef, Item, Script};
+use fsc_sema::thir::{FuncDef, Item, Script};
 
 mod error;
 mod frame;

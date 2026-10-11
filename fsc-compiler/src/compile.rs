@@ -53,12 +53,12 @@ pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFa
     let checked = check_source(request.source)?;
     let bound = fsc_sema::bind_configs(checked, request.config_values)
         .map_err(|errors| CompileFailure::from_diagnostics(errors.into_diagnostics()))?;
-    let hir = fsc_sema::lower(bound)
+    let thir = fsc_sema::lower(bound)
         .map_err(|error| CompileFailure::from_diagnostic(Diagnostic::from(error)))?;
 
     let mut assembler = Assembler::new();
-    fsc_codegen::compile(&hir, &mut assembler).map_err(|error| {
-        // TODO: attach source labels when HIR has spans
+    fsc_codegen::compile(&thir, &mut assembler).map_err(|error| {
+        // TODO: attach source labels when THIR has spans
         CompileFailure::from_diagnostic(Diagnostic::error(Stage::Codegen, error.to_string()))
     })?;
 

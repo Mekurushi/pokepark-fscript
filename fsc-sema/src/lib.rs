@@ -6,9 +6,9 @@ use fsc_parse::ast;
 mod bind;
 mod checked;
 mod error;
-pub mod hir;
 mod resolve;
 mod symbol;
+pub mod thir;
 mod type_check;
 pub mod types;
 
@@ -39,6 +39,6 @@ pub fn check(script: ast::Script) -> SemaResult<CheckedScript> {
     })
 }
 
-pub fn lower(bound: BoundScript) -> SemaResult<hir::Script> {
-    hir::lower_script(bound)
+pub fn lower(bound: BoundScript) -> SemaResult<thir::Script> {
+    thir::lower_script(bound)
 }
