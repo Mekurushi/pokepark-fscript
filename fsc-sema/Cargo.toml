@@ -1,0 +1,11 @@
+[package]
+name = "fsc-sema"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fsc-diagnostics = { path = "../fsc-diagnostics" }
+fsc-parse = { path = "../fsc-parse" }
+
+[lints]
+workspace = true

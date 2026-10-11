@@ -8,7 +8,7 @@ name = "fsa"
 path = "src/lib.rs"
 
 [dependencies]
-fsc_vm_ir = { path = "../fsc_vm_ir" }
+fsb-ir = { path = "../fsb-ir" }
 logos = "0.16.1"
 
 [lints]

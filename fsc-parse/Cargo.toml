@@ -1,0 +1,11 @@
+[package]
+name = "fsc-parse"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fsc-diagnostics = { path = "../fsc-diagnostics" }
+logos = "0.16.1"
+
+[lints]
+workspace = true

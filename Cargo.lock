@@ -153,28 +153,35 @@ checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 name = "fsa"
 version = "0.1.0"
 dependencies = [
- "fsc_vm_ir",
+ "fsb-ir",
  "logos",
 ]
 
 [[package]]
-name = "fsa_cli"
+name = "fsa-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
  "fsa",
- "fsc_assembler",
+ "fsb-assembler",
 ]
 
 [[package]]
-name = "fsc_assembler"
+name = "fsb-assembler"
 version = "0.1.0"
 dependencies = [
- "fsc_vm_ir",
+ "fsb-ir",
 ]
 
 [[package]]
-name = "fsc_diagnostics"
+name = "fsb-ir"
+version = "0.1.0"
+dependencies = [
+ "cranelift-entity",
+]
+
+[[package]]
+name = "fsc-diagnostics"
 version = "0.1.0"
 dependencies = [
  "annotate-snippets",
@@ -183,26 +190,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "fsc_parse"
+name = "fsc-parse"
 version = "0.1.0"
 dependencies = [
- "fsc_diagnostics",
+ "fsc-diagnostics",
  "logos",
 ]
 
 [[package]]
-name = "fsc_sema"
+name = "fsc-sema"
 version = "0.1.0"
 dependencies = [
- "fsc_diagnostics",
- "fsc_parse",
-]
-
-[[package]]
-name = "fsc_vm_ir"
-version = "0.1.0"
-dependencies = [
- "cranelift-entity",
+ "fsc-diagnostics",
+ "fsc-parse",
 ]
 
 [[package]]

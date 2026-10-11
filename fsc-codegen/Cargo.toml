@@ -1,0 +1,11 @@
+[package]
+name = "fsc-codegen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fsc-sema = { path = "../fsc-sema" }
+fsb-assembler = { path = "../fsb-assembler" }
+
+[lints]
+workspace = true

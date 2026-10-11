@@ -1,0 +1,20 @@
+[package]
+name = "fsc-lsp"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "fsc-lsp"
+path = "src/main.rs"
+
+[dependencies]
+fsc-compiler = { path = "../fsc-compiler" }
+fsc-diagnostics = { path = "../fsc-diagnostics" }
+line-index = "0.1.2"
+lsp-server = "0.10.0"
+lsp-types = "0.97.0"
+serde_json = "1"
+log = "0.4.34"
+env_logger = "0.11.11"
+[lints]
+workspace = true

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use fsc_vm_ir::{BlockId, FunctionRef, Program, Word};
+use fsb_ir::{BlockId, FunctionRef, Program, Word};
 
 use super::declarations::{DeclaredProgram, Symbols};
 use super::error::{LowerError, LowerResult};
@@ -26,7 +26,7 @@ pub(super) fn lower(script: &Script, declared: DeclaredProgram) -> LowerResult<P
 }
 
 fn lower_function(
-    target: &mut fsc_vm_ir::Function,
+    target: &mut fsb_ir::Function,
     symbols: &Symbols,
     source: &ast::Function,
 ) -> LowerResult<()> {
@@ -36,7 +36,7 @@ fn lower_function(
 }
 
 fn declare_labels(
-    target: &mut fsc_vm_ir::Function,
+    target: &mut fsb_ir::Function,
     source: &ast::Function,
 ) -> LowerResult<HashMap<String, BlockId>> {
     let mut labels = HashMap::new();
@@ -58,7 +58,7 @@ fn declare_labels(
 }
 
 struct FunctionLowerer<'ir, 'symbols, 'ast> {
-    target: &'ir mut fsc_vm_ir::Function,
+    target: &'ir mut fsb_ir::Function,
     symbols: &'symbols Symbols,
     source: &'ast ast::Function,
     labels: HashMap<String, BlockId>,
@@ -67,7 +67,7 @@ struct FunctionLowerer<'ir, 'symbols, 'ast> {
 
 impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
     fn new(
-        target: &'ir mut fsc_vm_ir::Function,
+        target: &'ir mut fsb_ir::Function,
         symbols: &'symbols Symbols,
         source: &'ast ast::Function,
         labels: HashMap<String, BlockId>,
@@ -111,7 +111,7 @@ impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
         {
             self.target
                 .block_mut(current)
-                .set_terminator(fsc_vm_ir::Terminator::Jump(block));
+                .set_terminator(fsb_ir::Terminator::Jump(block));
         }
         Ok(())
     }
@@ -130,14 +130,14 @@ impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
         let current = self.current_or_new_block();
         let (terminator, next) = match terminator {
             ast::Terminator::Jump(target) => (
-                fsc_vm_ir::Terminator::Jump(self.resolve_label(target)?),
+                fsb_ir::Terminator::Jump(self.resolve_label(target)?),
                 None,
             ),
             ast::Terminator::Branch { kind, target } => {
                 let taken = self.resolve_label(target)?;
                 let not_taken = self.target.create_block();
                 (
-                    fsc_vm_ir::Terminator::Branch {
+                    fsb_ir::Terminator::Branch {
                         kind: lower_branch_kind(*kind),
                         taken,
                         not_taken,
@@ -146,18 +146,18 @@ impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
                 )
             }
             ast::Terminator::Return { kind, frame_slots } => (
-                fsc_vm_ir::Terminator::Return {
+                fsb_ir::Terminator::Return {
                     kind: lower_return_kind(*kind),
                     frame_slots: *frame_slots,
                 },
                 None,
             ),
             ast::Terminator::Exit1 => (
-                fsc_vm_ir::Terminator::Exit(fsc_vm_ir::ExitKind::Abort),
+                fsb_ir::Terminator::Exit(fsb_ir::ExitKind::Abort),
                 None,
             ),
             ast::Terminator::Exit2 => (
-                fsc_vm_ir::Terminator::Exit(fsc_vm_ir::ExitKind::Reset),
+                fsb_ir::Terminator::Exit(fsb_ir::ExitKind::Reset),
                 None,
             ),
         };
@@ -181,9 +181,9 @@ impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
 fn lower_instruction(
     instruction: &ast::Instruction,
     symbols: &Symbols,
-) -> LowerResult<fsc_vm_ir::Instruction> {
+) -> LowerResult<fsb_ir::Instruction> {
     use ast::Instruction as Ast;
-    use fsc_vm_ir::Instruction as Ir;
+    use fsb_ir::Instruction as Ir;
 
     Ok(match instruction {
         Ast::Syscall {
@@ -252,104 +252,104 @@ fn lower_instruction(
     })
 }
 
-fn lower_integer_operation(operation: ast::IntegerOperation) -> fsc_vm_ir::IntegerOperation {
+fn lower_integer_operation(operation: ast::IntegerOperation) -> fsb_ir::IntegerOperation {
     match operation {
-        ast::IntegerOperation::Add => fsc_vm_ir::IntegerOperation::Add,
-        ast::IntegerOperation::Subtract => fsc_vm_ir::IntegerOperation::Subtract,
-        ast::IntegerOperation::Multiply => fsc_vm_ir::IntegerOperation::Multiply,
-        ast::IntegerOperation::Divide => fsc_vm_ir::IntegerOperation::Divide,
-        ast::IntegerOperation::Remainder => fsc_vm_ir::IntegerOperation::Remainder,
-        ast::IntegerOperation::And => fsc_vm_ir::IntegerOperation::And,
-        ast::IntegerOperation::Or => fsc_vm_ir::IntegerOperation::Or,
-        ast::IntegerOperation::Xor => fsc_vm_ir::IntegerOperation::Xor,
-        ast::IntegerOperation::Not => fsc_vm_ir::IntegerOperation::Not,
-        ast::IntegerOperation::IsZero => fsc_vm_ir::IntegerOperation::IsZero,
-        ast::IntegerOperation::Negate => fsc_vm_ir::IntegerOperation::Negate,
+        ast::IntegerOperation::Add => fsb_ir::IntegerOperation::Add,
+        ast::IntegerOperation::Subtract => fsb_ir::IntegerOperation::Subtract,
+        ast::IntegerOperation::Multiply => fsb_ir::IntegerOperation::Multiply,
+        ast::IntegerOperation::Divide => fsb_ir::IntegerOperation::Divide,
+        ast::IntegerOperation::Remainder => fsb_ir::IntegerOperation::Remainder,
+        ast::IntegerOperation::And => fsb_ir::IntegerOperation::And,
+        ast::IntegerOperation::Or => fsb_ir::IntegerOperation::Or,
+        ast::IntegerOperation::Xor => fsb_ir::IntegerOperation::Xor,
+        ast::IntegerOperation::Not => fsb_ir::IntegerOperation::Not,
+        ast::IntegerOperation::IsZero => fsb_ir::IntegerOperation::IsZero,
+        ast::IntegerOperation::Negate => fsb_ir::IntegerOperation::Negate,
     }
 }
 
-fn lower_float_operation(operation: ast::FloatOperation) -> fsc_vm_ir::FloatOperation {
+fn lower_float_operation(operation: ast::FloatOperation) -> fsb_ir::FloatOperation {
     match operation {
-        ast::FloatOperation::Add => fsc_vm_ir::FloatOperation::Add,
-        ast::FloatOperation::Subtract => fsc_vm_ir::FloatOperation::Subtract,
-        ast::FloatOperation::Multiply => fsc_vm_ir::FloatOperation::Multiply,
-        ast::FloatOperation::Divide => fsc_vm_ir::FloatOperation::Divide,
-        ast::FloatOperation::IsZero => fsc_vm_ir::FloatOperation::IsZero,
-        ast::FloatOperation::Negate => fsc_vm_ir::FloatOperation::Negate,
+        ast::FloatOperation::Add => fsb_ir::FloatOperation::Add,
+        ast::FloatOperation::Subtract => fsb_ir::FloatOperation::Subtract,
+        ast::FloatOperation::Multiply => fsb_ir::FloatOperation::Multiply,
+        ast::FloatOperation::Divide => fsb_ir::FloatOperation::Divide,
+        ast::FloatOperation::IsZero => fsb_ir::FloatOperation::IsZero,
+        ast::FloatOperation::Negate => fsb_ir::FloatOperation::Negate,
     }
 }
 
-fn lower_comparison(comparison: ast::Comparison) -> fsc_vm_ir::Comparison {
+fn lower_comparison(comparison: ast::Comparison) -> fsb_ir::Comparison {
     match comparison {
-        ast::Comparison::Equal => fsc_vm_ir::Comparison::Equal,
-        ast::Comparison::NotEqual => fsc_vm_ir::Comparison::NotEqual,
-        ast::Comparison::LessThan => fsc_vm_ir::Comparison::LessThan,
-        ast::Comparison::GreaterThan => fsc_vm_ir::Comparison::GreaterThan,
-        ast::Comparison::LessOrEqual => fsc_vm_ir::Comparison::LessOrEqual,
-        ast::Comparison::GreaterOrEqual => fsc_vm_ir::Comparison::GreaterOrEqual,
+        ast::Comparison::Equal => fsb_ir::Comparison::Equal,
+        ast::Comparison::NotEqual => fsb_ir::Comparison::NotEqual,
+        ast::Comparison::LessThan => fsb_ir::Comparison::LessThan,
+        ast::Comparison::GreaterThan => fsb_ir::Comparison::GreaterThan,
+        ast::Comparison::LessOrEqual => fsb_ir::Comparison::LessOrEqual,
+        ast::Comparison::GreaterOrEqual => fsb_ir::Comparison::GreaterOrEqual,
     }
 }
 
-fn lower_shift_operation(operation: ast::ShiftOperation) -> fsc_vm_ir::ShiftOperation {
+fn lower_shift_operation(operation: ast::ShiftOperation) -> fsb_ir::ShiftOperation {
     match operation {
-        ast::ShiftOperation::Left => fsc_vm_ir::ShiftOperation::Left,
-        ast::ShiftOperation::RightArithmetic => fsc_vm_ir::ShiftOperation::RightArithmetic,
-        ast::ShiftOperation::RightLogical => fsc_vm_ir::ShiftOperation::RightLogical,
+        ast::ShiftOperation::Left => fsb_ir::ShiftOperation::Left,
+        ast::ShiftOperation::RightArithmetic => fsb_ir::ShiftOperation::RightArithmetic,
+        ast::ShiftOperation::RightLogical => fsb_ir::ShiftOperation::RightLogical,
     }
 }
 
-fn lower_memory_width(width: ast::MemoryWidth) -> fsc_vm_ir::MemoryWidth {
+fn lower_memory_width(width: ast::MemoryWidth) -> fsb_ir::MemoryWidth {
     match width {
-        ast::MemoryWidth::Byte => fsc_vm_ir::MemoryWidth::Byte,
-        ast::MemoryWidth::Halfword => fsc_vm_ir::MemoryWidth::Halfword,
-        ast::MemoryWidth::Word => fsc_vm_ir::MemoryWidth::Word,
+        ast::MemoryWidth::Byte => fsb_ir::MemoryWidth::Byte,
+        ast::MemoryWidth::Halfword => fsb_ir::MemoryWidth::Halfword,
+        ast::MemoryWidth::Word => fsb_ir::MemoryWidth::Word,
     }
 }
 
-fn lower_addressing_mode(mode: ast::AddressingMode) -> fsc_vm_ir::AddressingMode {
+fn lower_addressing_mode(mode: ast::AddressingMode) -> fsb_ir::AddressingMode {
     match mode {
-        ast::AddressingMode::Direct => fsc_vm_ir::AddressingMode::Direct,
-        ast::AddressingMode::Indexed => fsc_vm_ir::AddressingMode::Indexed,
+        ast::AddressingMode::Direct => fsb_ir::AddressingMode::Direct,
+        ast::AddressingMode::Indexed => fsb_ir::AddressingMode::Indexed,
     }
 }
 
-fn lower_store_operation(operation: ast::StoreOperation) -> fsc_vm_ir::StoreOperation {
+fn lower_store_operation(operation: ast::StoreOperation) -> fsb_ir::StoreOperation {
     match operation {
-        ast::StoreOperation::Assign => fsc_vm_ir::StoreOperation::Assign,
-        ast::StoreOperation::Add => fsc_vm_ir::StoreOperation::Add,
-        ast::StoreOperation::Subtract => fsc_vm_ir::StoreOperation::Subtract,
+        ast::StoreOperation::Assign => fsb_ir::StoreOperation::Assign,
+        ast::StoreOperation::Add => fsb_ir::StoreOperation::Add,
+        ast::StoreOperation::Subtract => fsb_ir::StoreOperation::Subtract,
     }
 }
 
-fn lower_conversion_kind(kind: ast::ConversionKind) -> fsc_vm_ir::ConversionKind {
+fn lower_conversion_kind(kind: ast::ConversionKind) -> fsb_ir::ConversionKind {
     match kind {
-        ast::ConversionKind::IntegerToFloat => fsc_vm_ir::ConversionKind::IntegerToFloat,
-        ast::ConversionKind::FloatToInteger => fsc_vm_ir::ConversionKind::FloatToInteger,
+        ast::ConversionKind::IntegerToFloat => fsb_ir::ConversionKind::IntegerToFloat,
+        ast::ConversionKind::FloatToInteger => fsb_ir::ConversionKind::FloatToInteger,
     }
 }
 
-fn lower_branch_kind(kind: ast::BranchKind) -> fsc_vm_ir::BranchKind {
+fn lower_branch_kind(kind: ast::BranchKind) -> fsb_ir::BranchKind {
     match kind {
-        ast::BranchKind::IfZero(mode) => fsc_vm_ir::BranchKind::IfZero(lower_branch_mode(mode)),
+        ast::BranchKind::IfZero(mode) => fsb_ir::BranchKind::IfZero(lower_branch_mode(mode)),
         ast::BranchKind::IfNonZero(mode) => {
-            fsc_vm_ir::BranchKind::IfNonZero(lower_branch_mode(mode))
+            fsb_ir::BranchKind::IfNonZero(lower_branch_mode(mode))
         }
-        ast::BranchKind::IfEqual => fsc_vm_ir::BranchKind::IfEqual,
-        ast::BranchKind::IfEqualImmediate(value) => fsc_vm_ir::BranchKind::IfEqualImmediate(value),
+        ast::BranchKind::IfEqual => fsb_ir::BranchKind::IfEqual,
+        ast::BranchKind::IfEqualImmediate(value) => fsb_ir::BranchKind::IfEqualImmediate(value),
     }
 }
 
-fn lower_branch_mode(mode: ast::BranchMode) -> fsc_vm_ir::BranchMode {
+fn lower_branch_mode(mode: ast::BranchMode) -> fsb_ir::BranchMode {
     match mode {
-        ast::BranchMode::Normal => fsc_vm_ir::BranchMode::Normal,
-        ast::BranchMode::Pause => fsc_vm_ir::BranchMode::Pause,
-        ast::BranchMode::Set => fsc_vm_ir::BranchMode::Set,
+        ast::BranchMode::Normal => fsb_ir::BranchMode::Normal,
+        ast::BranchMode::Pause => fsb_ir::BranchMode::Pause,
+        ast::BranchMode::Set => fsb_ir::BranchMode::Set,
     }
 }
 
-fn lower_return_kind(kind: ast::ReturnKind) -> fsc_vm_ir::ReturnKind {
+fn lower_return_kind(kind: ast::ReturnKind) -> fsb_ir::ReturnKind {
     match kind {
-        ast::ReturnKind::None => fsc_vm_ir::ReturnKind::None,
-        ast::ReturnKind::Value => fsc_vm_ir::ReturnKind::Value,
+        ast::ReturnKind::None => fsb_ir::ReturnKind::None,
+        ast::ReturnKind::Value => fsb_ir::ReturnKind::Value,
     }
 }

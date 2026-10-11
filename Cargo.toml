@@ -1,12 +1,12 @@
 [workspace]
 members = [
     "fsa",
-    "fsa_cli",
-    "fsc_assembler",
-    "fsc_diagnostics",
-    "fsc_parse",
-    "fsc_sema",
-    "fsc_vm_ir",
+    "fsa-cli",
+    "fsb-assembler",
+    "fsb-ir",
+    "fsc-diagnostics",
+    "fsc-parse",
+    "fsc-sema",
 ]
 resolver = "2"
 

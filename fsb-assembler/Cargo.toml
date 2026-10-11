@@ -1,0 +1,13 @@
+[package]
+name = "fsb-assembler"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "fsb_assembler"
+path = "src/lib.rs"
+
+[dependencies]
+fsb-ir = { path = "../fsb-ir" }
+[lints]
+workspace = true

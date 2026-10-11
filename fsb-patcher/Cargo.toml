@@ -1,0 +1,16 @@
+[package]
+name = "fsb-patcher"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+fsb-assembler = { path = "../fsb-assembler" }
+fsc-codegen = { path = "../fsc-codegen" }
+fsc-diagnostics = { path = "../fsc-diagnostics" }
+fsc-parse = { path = "../fsc-parse" }
+fsc-sema = { path = "../fsc-sema" }
+serde = { version = "1", features = ["derive"] }
+toml = "1.1.4"
+
+[lints]
+workspace = true

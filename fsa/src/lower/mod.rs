@@ -2,7 +2,7 @@ mod body;
 mod declarations;
 pub mod error;
 
-use fsc_vm_ir::Program;
+use fsb_ir::Program;
 
 use self::error::LowerResult;
 use crate::ast::Script;

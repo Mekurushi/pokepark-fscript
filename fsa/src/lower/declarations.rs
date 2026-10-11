@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use fsc_vm_ir::{DataRef, ExternalData, ExternalFunction, FunctionRef, Program, Word};
+use fsb_ir::{DataRef, ExternalData, ExternalFunction, FunctionRef, Program, Word};
 
 use super::error::{LowerError, LowerResult};
 use crate::ast::{self, Item, Script};
@@ -41,8 +41,8 @@ impl DeclaredProgram {
         }
 
         let linkage = match function.linkage {
-            ast::Linkage::Internal => fsc_vm_ir::Linkage::Internal,
-            ast::Linkage::Exported => fsc_vm_ir::Linkage::Exported,
+            ast::Linkage::Internal => fsb_ir::Linkage::Internal,
+            ast::Linkage::Exported => fsb_ir::Linkage::Exported,
         };
         let id = self.program.create_function(function.name.clone(), linkage);
 
