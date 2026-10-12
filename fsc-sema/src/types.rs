@@ -3,20 +3,10 @@ pub enum Ty {
     Int,
     Float,
     Vec3,
+    Array { element: Box<Ty>, length: usize },
     Void,
     Bool,
     Str,
-}
-
-impl Ty {
-    #[must_use]
-    pub const fn slot_width(&self) -> u16 {
-        match self {
-            Self::Void => 0,
-            Self::Vec3 => 3,
-            Self::Int | Self::Float | Self::Bool | Self::Str => 1,
-        }
-    }
 }
 
 impl From<&fsc_parse::ast::Ty> for Ty {

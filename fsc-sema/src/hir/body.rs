@@ -63,7 +63,7 @@ pub enum ExprKind {
         callee: Box<Expr>,
         arguments: Vec<Expr>,
     },
-    SysCall {
+    RawSyscall {
         arguments: Vec<Expr>,
     },
 }

@@ -444,7 +444,7 @@ fn lower_expression(
                 .map(|argument| lower_expression(argument, names, diagnostics))
                 .collect(),
         },
-        ast::ExprKind::SysCall { args } => hir::ExprKind::SysCall {
+        ast::ExprKind::SysCall { args } => hir::ExprKind::RawSyscall {
             arguments: args
                 .iter()
                 .map(|argument| lower_expression(argument, names, diagnostics))
