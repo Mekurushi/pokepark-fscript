@@ -22,16 +22,18 @@ pub(super) fn lower(
 struct Lowerer<'declarations, 'diagnostics> {
     declarations: &'declarations Declarations,
     diagnostics: &'diagnostics mut Diagnostics,
+    expression_ids: ExprIdAllocator,
 }
 
 impl<'declarations, 'diagnostics> Lowerer<'declarations, 'diagnostics> {
-    const fn new(
+    fn new(
         declarations: &'declarations Declarations,
         diagnostics: &'diagnostics mut Diagnostics,
     ) -> Self {
         Self {
             declarations,
             diagnostics,
+            expression_ids: ExprIdAllocator::default(),
         }
     }
 
@@ -55,8 +57,12 @@ impl<'declarations, 'diagnostics> Lowerer<'declarations, 'diagnostics> {
                     signature: self.lower_signature(&function.header),
                     kind: hir::FunctionKind::Defined {
                         exported: function.exported,
-                        body: FunctionLowerer::new(self.declarations, self.diagnostics)
-                            .lower(&function.header.params, &function.body),
+                        body: FunctionLowerer::new(
+                            self.declarations,
+                            self.diagnostics,
+                            &mut self.expression_ids,
+                        )
+                        .lower(&function.header.params, &function.body),
                     },
                 }),
             },
@@ -78,6 +84,7 @@ impl<'declarations, 'diagnostics> Lowerer<'declarations, 'diagnostics> {
                         &constant.initializer,
                         NameResolver::global(self.declarations),
                         self.diagnostics,
+                        &mut self.expression_ids,
                     ),
                 }),
             },
@@ -122,9 +129,21 @@ impl<'declarations, 'diagnostics> Lowerer<'declarations, 'diagnostics> {
     }
 }
 
+#[derive(Debug, Default)]
+struct ExprIdAllocator {
+    allocated: PrimaryMap<hir::ExprId, ()>,
+}
+
+impl ExprIdAllocator {
+    fn allocate(&mut self) -> hir::ExprId {
+        self.allocated.push(())
+    }
+}
+
 struct FunctionLowerer<'declarations, 'diagnostics> {
     declarations: &'declarations Declarations,
     diagnostics: &'diagnostics mut Diagnostics,
+    expression_ids: &'diagnostics mut ExprIdAllocator,
     locals: PrimaryMap<hir::LocalId, hir::Local>,
     scopes: LocalScopeStack,
 }
@@ -133,10 +152,12 @@ impl<'declarations, 'diagnostics> FunctionLowerer<'declarations, 'diagnostics> {
     fn new(
         declarations: &'declarations Declarations,
         diagnostics: &'diagnostics mut Diagnostics,
+        expression_ids: &'diagnostics mut ExprIdAllocator,
     ) -> Self {
         Self {
             declarations,
             diagnostics,
+            expression_ids,
             locals: PrimaryMap::new(),
             scopes: LocalScopeStack::default(),
         }
@@ -237,6 +258,7 @@ impl<'declarations, 'diagnostics> FunctionLowerer<'declarations, 'diagnostics> {
             expression,
             NameResolver::function(self.declarations, &self.scopes),
             self.diagnostics,
+            self.expression_ids,
         )
     }
 
@@ -391,6 +413,7 @@ fn lower_expression(
     source: &ast::Expr,
     names: NameResolver<'_>,
     diagnostics: &mut Diagnostics,
+    expression_ids: &mut ExprIdAllocator,
 ) -> hir::Expr {
     let kind = match &source.kind {
         ast::ExprKind::IntLit(value) => hir::ExprKind::Int(*value),
@@ -410,18 +433,18 @@ fn lower_expression(
             member,
             member_span,
         } => hir::ExprKind::Member {
-            base: Box::new(lower_expression(base, names, diagnostics)),
+            base: Box::new(lower_expression(base, names, diagnostics, expression_ids)),
             member: member.clone(),
             member_span: *member_span,
         },
         ast::ExprKind::BinOp { op, lhs, rhs } => hir::ExprKind::Binary {
             op: lower_binary_operator(op),
-            lhs: Box::new(lower_expression(lhs, names, diagnostics)),
-            rhs: Box::new(lower_expression(rhs, names, diagnostics)),
+            lhs: Box::new(lower_expression(lhs, names, diagnostics, expression_ids)),
+            rhs: Box::new(lower_expression(rhs, names, diagnostics, expression_ids)),
         },
         ast::ExprKind::Unary { op, expr } => hir::ExprKind::Unary {
             op: lower_unary_operator(op),
-            expr: Box::new(lower_expression(expr, names, diagnostics)),
+            expr: Box::new(lower_expression(expr, names, diagnostics, expression_ids)),
         },
         ast::ExprKind::Call {
             callee,
@@ -429,6 +452,7 @@ fn lower_expression(
             args,
         } => hir::ExprKind::Call {
             callee: Box::new(hir::Expr {
+                id: expression_ids.allocate(),
                 kind: names.resolve(callee).unwrap_or_else(|| {
                     hir::ExprKind::Error(diagnostics.emit_error(Diagnostic::from(
                         ResolveError::UndeclaredName {
@@ -441,18 +465,19 @@ fn lower_expression(
             }),
             arguments: args
                 .iter()
-                .map(|argument| lower_expression(argument, names, diagnostics))
+                .map(|argument| lower_expression(argument, names, diagnostics, expression_ids))
                 .collect(),
         },
         ast::ExprKind::SysCall { args } => hir::ExprKind::RawSyscall {
             arguments: args
                 .iter()
-                .map(|argument| lower_expression(argument, names, diagnostics))
+                .map(|argument| lower_expression(argument, names, diagnostics, expression_ids))
                 .collect(),
         },
     };
 
     hir::Expr {
+        id: expression_ids.allocate(),
         kind,
         span: source.span,
     }

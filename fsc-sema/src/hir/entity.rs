@@ -9,3 +9,8 @@ entity_impl!(ItemId, "item");
 pub struct LocalId(u32);
 
 entity_impl!(LocalId, "local");
+
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ExprId(u32);
+
+entity_impl!(ExprId, "expression");

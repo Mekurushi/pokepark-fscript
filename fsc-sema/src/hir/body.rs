@@ -1,4 +1,4 @@
-use super::{ItemId, LocalId};
+use super::{ExprId, ItemId, LocalId};
 use crate::types::Ty;
 use cranelift_entity::PrimaryMap;
 use fsc_diagnostics::{ErrorGuaranteed, Span};
@@ -32,6 +32,7 @@ pub enum LocalKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Expr {
+    pub id: ExprId,
     pub kind: ExprKind,
     pub span: Span,
 }
