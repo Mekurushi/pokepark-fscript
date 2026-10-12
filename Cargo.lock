@@ -201,6 +201,7 @@ dependencies = [
 name = "fsc-sema"
 version = "0.1.0"
 dependencies = [
+ "cranelift-entity",
  "fsc-diagnostics",
  "fsc-parse",
 ]

@@ -19,6 +19,40 @@ pub enum Severity {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ErrorGuaranteed {
+    _private: (),
+}
+
+impl ErrorGuaranteed {
+    const fn new() -> Self {
+        Self { _private: () }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct Diagnostics {
+    entries: Vec<Diagnostic>,
+    error_count: usize,
+}
+
+impl Diagnostics {
+    pub fn emit_error(&mut self, diagnostic: Diagnostic) -> ErrorGuaranteed {
+        self.entries.push(diagnostic);
+        self.error_count += 1;
+        ErrorGuaranteed::new()
+    }
+
+    pub fn emit_warning(&mut self, diagnostic: Diagnostic) {
+        self.entries.push(diagnostic);
+    }
+
+    #[must_use]
+    pub const fn has_errors(&self) -> bool {
+        self.error_count != 0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelStyle {
     Primary,
     Secondary,

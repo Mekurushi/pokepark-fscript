@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+cranelift-entity = "=0.132.3"
 fsc-diagnostics = { path = "../fsc-diagnostics" }
 fsc-parse = { path = "../fsc-parse" }
 
