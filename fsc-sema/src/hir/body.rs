@@ -28,6 +28,7 @@ pub struct Local {
 pub enum LocalKind {
     Parameter { index: usize },
     Variable,
+    Constant,
 }
 
 #[derive(Debug, Clone, PartialEq)]

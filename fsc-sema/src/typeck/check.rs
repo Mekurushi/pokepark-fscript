@@ -51,9 +51,12 @@ impl<'hir> TypeChecker<'hir> {
         };
 
         for (_, local) in &body.locals {
-            if local.kind == hir::LocalKind::Variable {
-                self.check_declared_type(&local.ty, local.type_span, TypeContext::Local);
-            }
+            let context = match local.kind {
+                hir::LocalKind::Parameter { .. } => continue,
+                hir::LocalKind::Variable => TypeContext::Local,
+                hir::LocalKind::Constant => TypeContext::Constant,
+            };
+            self.check_declared_type(&local.ty, local.type_span, context);
         }
 
         self.check_block(body, &body.block, &function.signature.return_type);
@@ -185,7 +188,7 @@ impl<'hir> TypeChecker<'hir> {
         target: &hir::Expr,
     ) -> Result<Ty, ErrorGuaranteed> {
         let expression_type = self.check_expression(Some(body), target);
-        let writable = self.check_writable_place(target);
+        let writable = self.check_writable_place(body, target);
 
         match (expression_type, writable) {
             (_, Err(error)) | (Err(error), Ok(())) => Err(error),
@@ -196,11 +199,22 @@ impl<'hir> TypeChecker<'hir> {
         }
     }
 
-    fn check_writable_place(&mut self, expression: &hir::Expr) -> Result<(), ErrorGuaranteed> {
+    fn check_writable_place(
+        &mut self,
+        body: &hir::Body,
+        expression: &hir::Expr,
+    ) -> Result<(), ErrorGuaranteed> {
         match &expression.kind {
             hir::ExprKind::Error(error) => Err(*error),
-            hir::ExprKind::Local(_) => Ok(()),
-            hir::ExprKind::Member { base, .. } => self.check_writable_place(base),
+            hir::ExprKind::Local(local) => match body.locals[*local].kind {
+                hir::LocalKind::Parameter { .. } | hir::LocalKind::Variable => Ok(()),
+                hir::LocalKind::Constant => {
+                    Err(self.emit_error(TypeckError::ImmutableLocalConstant {
+                        span: expression.span,
+                    }))
+                }
+            },
+            hir::ExprKind::Member { base, .. } => self.check_writable_place(body, base),
             hir::ExprKind::ItemRef(_) => Err(self.emit_error(TypeckError::ImmutableItem {
                 span: expression.span,
             })),

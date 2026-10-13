@@ -101,6 +101,7 @@ pub enum StmtKind {
         ty_span: Span,
         init: Option<Expr>,
     },
+    ConstDecl(ConstDecl),
     Assign {
         target: Expr,
         expr: Expr,

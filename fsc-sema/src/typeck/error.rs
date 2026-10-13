@@ -58,6 +58,9 @@ pub(super) enum TypeckError {
     ImmutableItem {
         span: Span,
     },
+    ImmutableLocalConstant {
+        span: Span,
+    },
 }
 
 impl std::fmt::Display for TypeckError {
@@ -117,6 +120,9 @@ impl std::fmt::Display for TypeckError {
             ),
             Self::NotAssignable { .. } => formatter.write_str("expression is not assignable"),
             Self::ImmutableItem { .. } => formatter.write_str("cannot assign to an immutable item"),
+            Self::ImmutableLocalConstant { .. } => {
+                formatter.write_str("cannot assign to a local constant")
+            }
         }
     }
 }
@@ -144,6 +150,7 @@ impl From<TypeckError> for Diagnostic {
             TypeckError::InvalidMemberBase { span, .. } => (*span, "has no members"),
             TypeckError::NotAssignable { span } => (*span, "not an assignment target"),
             TypeckError::ImmutableItem { span } => (*span, "declared immutable"),
+            TypeckError::ImmutableLocalConstant { span } => (*span, "declared constant"),
         };
         diagnostic.with_label(Label::primary(span, label))
     }

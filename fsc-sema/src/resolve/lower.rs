@@ -213,6 +213,20 @@ impl<'declarations, 'diagnostics> FunctionLowerer<'declarations, 'diagnostics> {
                     self.declare_local(name, *name_span, ty, *ty_span, hir::LocalKind::Variable);
                 hir::StmtKind::LocalDeclaration { local, initializer }
             }
+            ast::StmtKind::ConstDecl(constant) => {
+                let initializer = self.lower_expression(&constant.initializer);
+                let local = self.declare_local(
+                    &constant.name,
+                    constant.name_span,
+                    &constant.ty,
+                    constant.ty_span,
+                    hir::LocalKind::Constant,
+                );
+                hir::StmtKind::LocalDeclaration {
+                    local,
+                    initializer: Some(initializer),
+                }
+            }
             ast::StmtKind::Assign { target, expr } => hir::StmtKind::Assign {
                 target: self.lower_expression(target),
                 value: self.lower_expression(expr),

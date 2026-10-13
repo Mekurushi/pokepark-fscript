@@ -144,11 +144,21 @@ impl Parser {
     }
     pub fn parse_item(&mut self) -> ParseResult<Item> {
         match self.ts.peek() {
-            Some(TokenKind::KwExtern) => self
-                .parse_extern_function_declaration()
-                .map(Item::ExternFuncDecl),
-            Some(TokenKind::KwConst) => self.parse_const_declaration().map(Item::ConstDecl),
-            Some(TokenKind::KwConfig) => self.parse_config_declaration().map(Item::ConfigDecl),
+            Some(TokenKind::KwExtern) => {
+                let declaration = self.parse_extern_function_declaration()?;
+                self.ts.expect(&TokenKind::Semicolon, "`;`")?;
+                Ok(Item::ExternFuncDecl(declaration))
+            }
+            Some(TokenKind::KwConst) => {
+                let declaration = self.parse_const_declaration()?;
+                self.ts.expect(&TokenKind::Semicolon, "`;`")?;
+                Ok(Item::ConstDecl(declaration))
+            }
+            Some(TokenKind::KwConfig) => {
+                let declaration = self.parse_config_declaration()?;
+                self.ts.expect(&TokenKind::Semicolon, "`;`")?;
+                Ok(Item::ConfigDecl(declaration))
+            }
             Some(TokenKind::KwExport) => self.parse_exported_function().map(Item::FuncDef),
             Some(token) if token.is_type_keyword() => {
                 self.parse_function_definition(false).map(Item::FuncDef)
@@ -179,7 +189,6 @@ impl Parser {
     fn parse_extern_function_declaration(&mut self) -> ParseResult<ExternFuncDecl> {
         self.ts.expect(&TokenKind::KwExtern, "`extern`")?;
         let header = self.parse_function_header()?;
-        self.ts.expect(&TokenKind::Semicolon, "`;`")?;
 
         Ok(ExternFuncDecl {
             id: self.ids.alloc(),
@@ -192,7 +201,6 @@ impl Parser {
         let head = self.parse_decl_head()?;
         self.ts.expect(&TokenKind::Eq, "`=`")?;
         let initializer = self.parse_expr(0)?;
-        self.ts.expect(&TokenKind::Semicolon, "`;`")?;
 
         Ok(ConstDecl {
             name: head.name,
@@ -206,7 +214,6 @@ impl Parser {
     fn parse_config_declaration(&mut self) -> ParseResult<ConfigDecl> {
         self.ts.expect(&TokenKind::KwConfig, "`config`")?;
         let head = self.parse_decl_head()?;
-        self.ts.expect(&TokenKind::Semicolon, "`;`")?;
 
         Ok(ConfigDecl {
             name: head.name,
@@ -318,6 +325,7 @@ impl Parser {
                 Ok(Stmt::new(self.ids.alloc(), StmtKind::ExprStmt(expr), span))
             }
             Some(TokenKind::KwPause) => self.parse_pause(),
+            Some(TokenKind::KwConst) => self.parse_local_const_decl(),
             Some(token) if token.is_variable_type_keyword() => self.parse_var_decl(),
             _ => Err(self.ts.unexpected("statement")),
         }
@@ -410,6 +418,16 @@ impl Parser {
                 ty_span: head.ty_span,
                 init,
             },
+            self.ts.span_consumed_from(start),
+        ))
+    }
+
+    fn parse_local_const_decl(&mut self) -> ParseResult<Stmt> {
+        let start = self.ts.current_offset();
+        let declaration = self.parse_const_declaration()?;
+        Ok(Stmt::new(
+            self.ids.alloc(),
+            StmtKind::ConstDecl(declaration),
             self.ts.span_consumed_from(start),
         ))
     }
