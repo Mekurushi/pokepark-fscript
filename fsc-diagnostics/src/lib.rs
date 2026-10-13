@@ -50,6 +50,16 @@ impl Diagnostics {
     pub const fn has_errors(&self) -> bool {
         self.error_count != 0
     }
+
+    #[must_use]
+    pub fn entries(&self) -> &[Diagnostic] {
+        &self.entries
+    }
+
+    #[must_use]
+    pub const fn error_count(&self) -> usize {
+        self.error_count
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

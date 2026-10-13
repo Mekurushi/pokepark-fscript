@@ -6,7 +6,8 @@ mod value;
 pub use body::{
     BinaryOp, Block, Body, Expr, ExprKind, FieldExpr, Local, LocalKind, Stmt, StmtKind, UnaryOp,
 };
-pub use entity::{ExprId, FieldIdx, FunctionId, LocalId};
+pub use crate::types::FieldIdx;
+pub use entity::{ExprId, FunctionId, LocalId};
 pub use place::{Place, ProjectionElem};
 pub use value::{ConstValue, SyscallNumber};
 

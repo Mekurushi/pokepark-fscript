@@ -1,3 +1,8 @@
+mod aggregate;
+
+pub use aggregate::FieldIdx;
+pub(crate) use aggregate::aggregate_definition;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {
     Int,

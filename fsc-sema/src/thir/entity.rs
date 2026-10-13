@@ -14,8 +14,3 @@ entity_impl!(LocalId, "local");
 pub struct ExprId(u32);
 
 entity_impl!(ExprId, "expression");
-
-#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct FieldIdx(u32);
-
-entity_impl!(FieldIdx, "field");
