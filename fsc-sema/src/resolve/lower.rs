@@ -211,7 +211,7 @@ impl<'declarations, 'diagnostics> FunctionLowerer<'declarations, 'diagnostics> {
                     .map(|expression| self.lower_expression(expression));
                 let local =
                     self.declare_local(name, *name_span, ty, *ty_span, hir::LocalKind::Variable);
-                hir::StmtKind::LocalDeclaration { local, initializer }
+                hir::StmtKind::VariableDeclaration { local, initializer }
             }
             ast::StmtKind::ConstDecl(constant) => {
                 let initializer = self.lower_expression(&constant.initializer);
@@ -222,10 +222,7 @@ impl<'declarations, 'diagnostics> FunctionLowerer<'declarations, 'diagnostics> {
                     constant.ty_span,
                     hir::LocalKind::Constant,
                 );
-                hir::StmtKind::LocalDeclaration {
-                    local,
-                    initializer: Some(initializer),
-                }
+                hir::StmtKind::ConstantDeclaration { local, initializer }
             }
             ast::StmtKind::Assign { target, expr } => hir::StmtKind::Assign {
                 target: self.lower_expression(target),

@@ -120,11 +120,15 @@ impl<'hir> TypeChecker<'hir> {
                 self.check_return(body, value.as_ref(), return_type, statement.span);
             }
             hir::StmtKind::Break => {}
-            hir::StmtKind::LocalDeclaration { local, initializer } => {
+            hir::StmtKind::VariableDeclaration { local, initializer } => {
                 if let Some(initializer) = initializer {
                     let actual = self.check_value_expression(Some(body), initializer);
                     self.expect_type(actual, &body.locals[*local].ty, initializer.span);
                 }
+            }
+            hir::StmtKind::ConstantDeclaration { local, initializer } => {
+                let actual = self.check_value_expression(Some(body), initializer);
+                self.expect_type(actual, &body.locals[*local].ty, initializer.span);
             }
             hir::StmtKind::Assign { target, value } => {
                 let target_type = self.check_assignment_target(body, target);

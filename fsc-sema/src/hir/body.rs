@@ -102,9 +102,13 @@ pub struct Stmt {
 pub enum StmtKind {
     Return(Option<Expr>),
     Break,
-    LocalDeclaration {
+    VariableDeclaration {
         local: LocalId,
         initializer: Option<Expr>,
+    },
+    ConstantDeclaration {
+        local: LocalId,
+        initializer: Expr,
     },
     Assign {
         target: Expr,

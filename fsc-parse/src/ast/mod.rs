@@ -46,6 +46,9 @@ pub struct Expr {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
+    // TODO: resolve the signed, unsigned here cleanly; going with signed as default, until a
+    // need for unsigned values comes up; since negation are separate tokens, this can't resolve
+    // the whole signed ranges; fix
     IntLit(i32),
     FloatLit(f32),
     BoolLit(bool),
