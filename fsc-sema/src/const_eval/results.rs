@@ -1,0 +1,54 @@
+use super::ConstValue;
+use crate::hir;
+use cranelift_entity::SecondaryMap;
+
+#[derive(Debug, Default)]
+pub(crate) struct EvaluatedConstants {
+    items: SecondaryMap<hir::ItemId, Option<ConstValue>>,
+    bodies: SecondaryMap<hir::ItemId, Option<EvaluatedBodyConstants>>,
+}
+
+impl EvaluatedConstants {
+    pub(super) fn record_item(&mut self, item: hir::ItemId, value: ConstValue) {
+        let previous = self.items.insert(item, Some(value));
+        debug_assert!(
+            previous.flatten().is_none(),
+            "constant value for {item:?} was recorded more than once"
+        );
+    }
+
+    pub(super) fn item(&self, item: hir::ItemId) -> Option<&ConstValue> {
+        self.items.get(item).and_then(Option::as_ref)
+    }
+
+    pub(super) fn record_body(&mut self, owner: hir::ItemId, body: EvaluatedBodyConstants) {
+        let previous = self.bodies.insert(owner, Some(body));
+        debug_assert!(
+            previous.flatten().is_none(),
+            "constant values for body {owner:?} were recorded more than once"
+        );
+    }
+
+    pub(super) fn body(&self, owner: hir::ItemId) -> Option<&EvaluatedBodyConstants> {
+        self.bodies.get(owner).and_then(Option::as_ref)
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub(super) struct EvaluatedBodyConstants {
+    locals: SecondaryMap<hir::LocalId, Option<ConstValue>>,
+}
+
+impl EvaluatedBodyConstants {
+    pub(super) fn record_local(&mut self, local: hir::LocalId, value: ConstValue) {
+        let previous = self.locals.insert(local, Some(value));
+        debug_assert!(
+            previous.flatten().is_none(),
+            "constant value for {local:?} was recorded more than once"
+        );
+    }
+
+    pub(super) fn local(&self, local: hir::LocalId) -> Option<&ConstValue> {
+        self.locals.get(local).and_then(Option::as_ref)
+    }
+}

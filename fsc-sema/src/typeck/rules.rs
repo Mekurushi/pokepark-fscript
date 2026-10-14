@@ -39,7 +39,9 @@ pub(super) fn compatibility(actual: &Ty, expected: &Ty) -> Compatibility {
 
 pub(super) fn type_allowed(ty: &Ty, context: TypeContext) -> bool {
     match context {
-        TypeContext::Parameter | TypeContext::Local | TypeContext::Constant => *ty != Ty::Void,
+        TypeContext::Parameter | TypeContext::Local => *ty != Ty::Void,
+        // TODO: add vec3 constants with proper end-to-end support (aggregates etc.)
+        TypeContext::Constant => *ty != Ty::Void && *ty != Ty::Vec3,
         TypeContext::Config => matches!(ty, Ty::Int | Ty::Float | Ty::Bool | Ty::Str),
         TypeContext::Return => true,
     }

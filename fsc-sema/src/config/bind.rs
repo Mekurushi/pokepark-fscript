@@ -10,6 +10,12 @@ pub(crate) struct BoundConfigs {
     values: SecondaryMap<hir::ItemId, Option<ConfigValue>>,
 }
 
+impl BoundConfigs {
+    pub(crate) fn value(&self, item: hir::ItemId) -> Option<&ConfigValue> {
+        self.values.get(item).and_then(Option::as_ref)
+    }
+}
+
 pub(crate) fn bind(
     script: &hir::Script,
     supplied: &ConfigValues,
