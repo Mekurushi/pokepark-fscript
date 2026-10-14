@@ -3,7 +3,7 @@ mod cli;
 use clap::Parser;
 use cli::{BuildArgs, CheckArgs, Cli, Command, ConfigArgs, DiagnosticFormat, PatchArgs};
 use fsc_compiler::{
-    CompileRequest, ConfigRequirement, ConfigType, check, compile, required_configs,
+    CheckMode, CompileRequest, ConfigRequirement, ConfigType, check, compile, required_configs,
 };
 use fsc_diagnostics::{Diagnostic, render_diagnostics, render_diagnostics_json};
 use std::fs;
@@ -77,17 +77,17 @@ fn check_file(args: CheckArgs) -> Result<(), ()> {
         return Err(());
     };
 
-    match check(&source) {
-        Ok(()) => render_check_diagnostics(args.diagnostic_format, &[], source_name, &source),
-        Err(failure) => {
-            render_check_diagnostics(
-                args.diagnostic_format,
-                failure.diagnostics(),
-                source_name,
-                &source,
-            )?;
-            Err(())
-        }
+    let output = check(&source, CheckMode::Source);
+    render_check_diagnostics(
+        args.diagnostic_format,
+        output.diagnostics(),
+        source_name,
+        &source,
+    )?;
+    if output.has_errors() {
+        Err(())
+    } else {
+        Ok(())
     }
 }
 

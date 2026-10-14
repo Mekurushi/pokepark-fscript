@@ -36,6 +36,11 @@ pub struct Diagnostics {
 }
 
 impl Diagnostics {
+    pub fn extend(&mut self, mut diagnostics: Self) {
+        self.error_count += diagnostics.error_count;
+        self.entries.append(&mut diagnostics.entries);
+    }
+
     pub fn emit_error(&mut self, diagnostic: Diagnostic) -> ErrorGuaranteed {
         self.entries.push(diagnostic);
         self.error_count += 1;

@@ -4,7 +4,9 @@ members = [
     "fsa-cli",
     "fsb-assembler",
     "fsb-ir",
+    "fsc-compiler",
     "fsc-diagnostics",
+    "fsc-lsp",
     "fsc-parse",
     "fsc-sema",
 ]

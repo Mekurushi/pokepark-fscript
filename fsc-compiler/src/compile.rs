@@ -1,8 +1,8 @@
+use crate::diagnostic::CompileFailure;
+use crate::CheckMode;
 use crate::ConfigRequirement;
 use crate::ConfigValues;
-use crate::diagnostic::CompileFailure;
-use fsb_assembler::Assembler;
-use fsc_diagnostics::{Diagnostic, Stage};
+use fsc_diagnostics::Diagnostic;
 
 #[derive(Debug, Clone, Copy)]
 pub struct CompileRequest<'src> {
@@ -32,6 +32,34 @@ pub struct CompileArtifact {
     diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Debug)]
+pub struct CheckOutput {
+    diagnostics: Vec<Diagnostic>,
+}
+
+impl CheckOutput {
+    fn new(diagnostics: Vec<Diagnostic>) -> Self {
+        Self { diagnostics }
+    }
+
+    #[must_use]
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        &self.diagnostics
+    }
+
+    #[must_use]
+    pub fn has_errors(&self) -> bool {
+        self.diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.severity() == fsc_diagnostics::Severity::Error)
+    }
+
+    #[must_use]
+    pub fn into_diagnostics(self) -> Vec<Diagnostic> {
+        self.diagnostics
+    }
+}
+
 impl CompileArtifact {
     #[must_use]
     pub fn bytes(&self) -> &[u8] {
@@ -50,48 +78,32 @@ impl CompileArtifact {
 }
 
 pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFailure> {
-    let checked = check_source(request.source)?;
-    let bound = fsc_sema::bind_configs(checked, request.config_values)
-        .map_err(|errors| CompileFailure::from_diagnostics(errors.into_diagnostics()))?;
-    let thir = fsc_sema::lower(bound)
-        .map_err(|error| CompileFailure::from_diagnostic(Diagnostic::from(error)))?;
-
-    let mut assembler = Assembler::new();
-    fsc_codegen::compile(&thir, &mut assembler).map_err(|error| {
-        // TODO: attach source labels when THIR has spans
-        CompileFailure::from_diagnostic(Diagnostic::error(Stage::Codegen, error.to_string()))
-    })?;
-
-    let binary = assembler
-        .finalize(request.script_name.to_owned())
-        .map_err(assembly_failure)?;
-    let bytes = binary.serialize().map_err(assembly_failure)?;
-
-    Ok(CompileArtifact {
-        bytes,
-        // TODO: collect successful-stage warnings
-        diagnostics: Vec::new(),
-    })
+    let output = check(
+        request.source,
+        CheckMode::Configured(request.config_values),
+    );
+    if output.has_errors() {
+        return Err(CompileFailure::from_diagnostics(
+            output.into_diagnostics(),
+        ));
+    }
+    todo!("further support")
 }
 
-pub fn check(source: &str) -> Result<(), CompileFailure> {
-    check_source(source)?;
-    Ok(())
+pub fn check(source: &str, mode: CheckMode<'_>) -> CheckOutput {
+    match fsc_parse::parse(source) {
+        Ok(script) => CheckOutput::new(fsc_sema::check(&script, mode).entries().to_vec()),
+        Err(error) => CheckOutput::new(error.into_diagnostics()),
+    }
 }
 
 pub fn required_configs(source: &str) -> Result<Vec<ConfigRequirement>, CompileFailure> {
-    Ok(check_source(source)?.config_requirements())
+    let script = parse(source)?;
+    fsc_sema::required_configs(&script)
+        .map_err(|diagnostics| CompileFailure::from_diagnostics(diagnostics.entries().to_vec()))
 }
 
-fn check_source(source: &str) -> Result<fsc_sema::CheckedScript, CompileFailure> {
-    let script = fsc_parse::parse(source)
-        .map_err(|error| CompileFailure::from_diagnostics(error.into_diagnostics()))?;
-
-    fsc_sema::check(script)
-        .map_err(|error| CompileFailure::from_diagnostic(Diagnostic::from(error)))
-}
-
-fn assembly_failure(error: impl std::fmt::Display) -> CompileFailure {
-    // TODO: attach source labels on assembly error
-    CompileFailure::from_diagnostic(Diagnostic::error(Stage::Assembly, error.to_string()))
+fn parse(source: &str) -> Result<fsc_parse::ast::Script, CompileFailure> {
+    fsc_parse::parse(source)
+        .map_err(|error| CompileFailure::from_diagnostics(error.into_diagnostics()))
 }

@@ -13,12 +13,25 @@ enum EvaluationState {
     Failed(ErrorGuaranteed),
 }
 
-#[derive(Debug, Default)]
-struct EvaluationContext {
+#[derive(Debug)]
+struct EvaluationContext<'diagnostics> {
     states: SecondaryMap<hir::ItemId, Option<EvaluationState>>,
     stack: Vec<hir::ItemId>,
     results: EvaluatedConstants,
-    diagnostics: Diagnostics,
+    diagnostics: &'diagnostics mut Diagnostics,
+    failed: bool,
+}
+
+impl<'diagnostics> EvaluationContext<'diagnostics> {
+    fn new(diagnostics: &'diagnostics mut Diagnostics) -> Self {
+        Self {
+            states: SecondaryMap::new(),
+            stack: Vec::new(),
+            results: EvaluatedConstants::default(),
+            diagnostics,
+            failed: false,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -39,8 +52,9 @@ struct BodyEvaluation {
 pub(crate) fn evaluate_items(
     script: &hir::Script,
     configs: &BoundConfigs,
-) -> Result<EvaluatedConstants, Diagnostics> {
-    let mut context = EvaluationContext::default();
+    diagnostics: &mut Diagnostics,
+) -> Option<EvaluatedConstants> {
+    let mut context = EvaluationContext::new(diagnostics);
     for (item, declaration) in &script.items {
         if matches!(declaration.kind, hir::ItemKind::Constant(_)) {
             let _ = context.evaluate_item(script, configs, item, declaration.name_span);
@@ -48,14 +62,14 @@ pub(crate) fn evaluate_items(
     }
     context.evaluate_bodies(script, configs);
 
-    if context.diagnostics.has_errors() {
-        Err(context.diagnostics)
+    if context.failed {
+        None
     } else {
-        Ok(context.results)
+        Some(context.results)
     }
 }
 
-impl EvaluationContext {
+impl EvaluationContext<'_> {
     fn evaluate_item(
         &mut self,
         script: &hir::Script,
@@ -335,6 +349,7 @@ impl EvaluationContext {
         })
     }
     fn emit_error(&mut self, error: ConstEvalError) -> ErrorGuaranteed {
+        self.failed = true;
         self.diagnostics.emit_error(Diagnostic::from(error))
     }
 }

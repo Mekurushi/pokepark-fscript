@@ -19,17 +19,19 @@ impl BoundConfigs {
 pub(crate) fn bind(
     script: &hir::Script,
     supplied: &ConfigValues,
-) -> Result<BoundConfigs, Diagnostics> {
+    diagnostics: &mut Diagnostics,
+) -> Option<BoundConfigs> {
     let declared_names = script
         .items
         .values()
         .filter(|item| matches!(item.kind, hir::ItemKind::Config(_)))
         .map(|item| item.name.as_str())
         .collect::<HashSet<_>>();
-    let mut diagnostics = Diagnostics::default();
+    let mut failed = false;
 
     for name in supplied.values.keys() {
         if !declared_names.contains(name.as_str()) {
+            failed = true;
             diagnostics.emit_error(Diagnostic::from(BindError::UnknownConfig {
                 name: name.clone(),
             }));
@@ -42,6 +44,7 @@ pub(crate) fn bind(
             continue;
         };
         let Some(value) = supplied.values.get(&item.name) else {
+            failed = true;
             diagnostics.emit_error(Diagnostic::from(BindError::MissingValue {
                 name: item.name.clone(),
                 declaration_span: item.name_span,
@@ -54,6 +57,7 @@ pub(crate) fn bind(
         };
         let actual = value.ty();
         if actual != expected {
+            failed = true;
             diagnostics.emit_error(Diagnostic::from(BindError::TypeMismatch {
                 name: item.name.clone(),
                 expected,
@@ -65,9 +69,9 @@ pub(crate) fn bind(
         bound.values.insert(item_id, Some(value.clone()));
     }
 
-    if diagnostics.has_errors() {
-        Err(diagnostics)
+    if failed {
+        None
     } else {
-        Ok(bound)
+        Some(bound)
     }
 }

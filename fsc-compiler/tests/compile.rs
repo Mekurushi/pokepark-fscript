@@ -1,6 +1,6 @@
 #![allow(clippy::expect_used)]
 
-use fsc_compiler::{CompileRequest, ConfigValues, check, compile};
+use fsc_compiler::{CheckMode, CompileRequest, ConfigValues, check, compile};
 use fsc_diagnostics::{LabelStyle, Severity, Span, Stage, render_diagnostics};
 
 const VALID_SOURCE: &str = "void main() { return; }";
@@ -9,7 +9,7 @@ const VALID_SOURCE: &str = "void main() { return; }";
 fn checks_source_without_assembling_it() {
     let source = "extern void unavailable(); void main() { unavailable(); return; }";
 
-    check(source).expect("frontend-valid source should pass checking");
+    assert!(!check(source, CheckMode::Source).has_errors());
     compile(CompileRequest::new(source, "main", &ConfigValues::new()))
         .expect_err("building should still report the unresolved external symbol");
 }

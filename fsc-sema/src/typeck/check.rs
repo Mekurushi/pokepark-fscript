@@ -5,27 +5,32 @@ use crate::hir;
 use crate::types::{self, Ty};
 use fsc_diagnostics::{Diagnostic, Diagnostics, ErrorGuaranteed, Span};
 
-pub(crate) fn check(script: &hir::Script) -> Result<TypeckResults, Diagnostics> {
-    let mut checker = TypeChecker::new(script);
+pub(crate) fn check(
+    script: &hir::Script,
+    diagnostics: &mut Diagnostics,
+) -> Option<TypeckResults> {
+    let mut checker = TypeChecker::new(script, diagnostics);
     checker.check_script();
-    if checker.diagnostics.has_errors() {
-        Err(checker.diagnostics)
+    if checker.failed {
+        None
     } else {
-        Ok(checker.results)
+        Some(checker.results)
     }
 }
 
-struct TypeChecker<'hir> {
+struct TypeChecker<'hir, 'diagnostics> {
     script: &'hir hir::Script,
-    diagnostics: Diagnostics,
+    diagnostics: &'diagnostics mut Diagnostics,
+    failed: bool,
     results: TypeckResults,
 }
 
-impl<'hir> TypeChecker<'hir> {
-    fn new(script: &'hir hir::Script) -> Self {
+impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
+    fn new(script: &'hir hir::Script, diagnostics: &'diagnostics mut Diagnostics) -> Self {
         Self {
             script,
-            diagnostics: Diagnostics::default(),
+            diagnostics,
+            failed: false,
             results: TypeckResults::default(),
         }
     }
@@ -464,6 +469,7 @@ impl<'hir> TypeChecker<'hir> {
     }
 
     fn emit_error(&mut self, error: TypeckError) -> ErrorGuaranteed {
+        self.failed = true;
         self.diagnostics.emit_error(Diagnostic::from(error))
     }
 }

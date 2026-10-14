@@ -11,10 +11,8 @@ pub(crate) fn check_document(
     related_information: bool,
 ) -> PublishDiagnosticsParams {
     let converter = DiagnosticConverter::new(&uri, document, related_information);
-    let diagnostics = match fsc_compiler::check(document.text()) {
-        Ok(()) => Vec::new(),
-        Err(failure) => converter.convert_all(failure.diagnostics()),
-    };
+    let output = fsc_compiler::check(document.text(), fsc_compiler::CheckMode::Source);
+    let diagnostics = converter.convert_all(output.diagnostics());
 
     PublishDiagnosticsParams::new(uri, diagnostics, Some(document.version()))
 }
