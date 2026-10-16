@@ -7,9 +7,3 @@ pub enum ConstValue {
     Array(Box<[ConstValue]>),
     Aggregate(Box<[ConstValue]>),
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SyscallNumber {
-    pub page: u8,
-    pub function: u16,
-}

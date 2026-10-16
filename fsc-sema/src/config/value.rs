@@ -10,7 +10,6 @@ pub enum ConfigType {
 }
 
 impl ConfigType {
-    #[allow(dead_code)]
     pub(crate) fn from_ty(ty: &Ty) -> Option<Self> {
         match ty {
             Ty::Int => Some(Self::Int),

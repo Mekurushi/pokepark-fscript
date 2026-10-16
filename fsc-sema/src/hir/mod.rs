@@ -1,9 +1,7 @@
 mod body;
 mod entity;
 
-pub use body::{
-    BinaryOp, Block, Body, Expr, ExprKind, Local, LocalKind, Stmt, StmtKind, UnaryOp,
-};
+pub use body::{BinaryOp, Block, Body, Expr, ExprKind, Local, LocalKind, Stmt, StmtKind, UnaryOp};
 pub use entity::{ExprId, ItemId, LocalId};
 
 use crate::types::Ty;
@@ -44,8 +42,6 @@ pub struct FunctionSignature {
 
 #[derive(Debug)]
 pub struct Parameter {
-    pub name: String,
-    pub name_span: Span,
     pub ty: Ty,
     pub type_span: Span,
 }

@@ -114,8 +114,6 @@ impl<'declarations, 'diagnostics> Lowerer<'declarations, 'diagnostics> {
                 parameter_names.insert(parameter.name.as_str(), parameter.name_span);
             }
             parameters.push(hir::Parameter {
-                name: parameter.name.clone(),
-                name_span: parameter.name_span,
                 ty: Ty::from(&parameter.ty),
                 type_span: parameter.ty_span,
             });

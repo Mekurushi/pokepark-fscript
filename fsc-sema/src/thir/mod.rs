@@ -1,15 +1,16 @@
 mod body;
 mod entity;
-mod place;
+mod lower;
 mod value;
+
+pub(crate) use lower::lower;
 
 pub use body::{
     BinaryOp, Block, Body, Expr, ExprKind, FieldExpr, Local, LocalKind, Stmt, StmtKind, UnaryOp,
 };
 pub use crate::types::FieldIdx;
 pub use entity::{ExprId, FunctionId, LocalId};
-pub use place::{Place, ProjectionElem};
-pub use value::{ConstValue, SyscallNumber};
+pub use value::ConstValue;
 
 use crate::types::Ty;
 use cranelift_entity::PrimaryMap;

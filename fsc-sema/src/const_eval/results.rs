@@ -17,8 +17,16 @@ impl EvaluatedConstants {
         );
     }
 
-    pub(super) fn item(&self, item: hir::ItemId) -> Option<&ConstValue> {
+    pub(crate) fn item(&self, item: hir::ItemId) -> Option<&ConstValue> {
         self.items.get(item).and_then(Option::as_ref)
+    }
+
+    pub(crate) fn local(
+        &self,
+        owner: hir::ItemId,
+        local: hir::LocalId,
+    ) -> Option<&ConstValue> {
+        self.body(owner).and_then(|body| body.local(local))
     }
 
     pub(super) fn record_body(&mut self, owner: hir::ItemId, body: EvaluatedBodyConstants) {

@@ -78,15 +78,11 @@ impl CompileArtifact {
 }
 
 pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFailure> {
-    let output = check(
-        request.source,
-        CheckMode::Configured(request.config_values),
-    );
-    if output.has_errors() {
-        return Err(CompileFailure::from_diagnostics(
-            output.into_diagnostics(),
-        ));
-    }
+    let script = parse(request.source)?;
+    let _analysis = fsc_sema::analyze(&script, request.config_values)
+        .map_err(|diagnostics| {
+            CompileFailure::from_diagnostics(diagnostics.entries().to_vec())
+        })?;
     todo!("further support")
 }
 

@@ -1,12 +1,9 @@
-#[allow(dead_code)]
 mod analysis;
 mod config;
-#[allow(dead_code)]
 mod const_eval;
 mod hir;
 mod resolve;
-mod thir;
-#[allow(dead_code)]
+pub mod thir;
 mod typeck;
 pub mod types;
 
@@ -20,6 +17,12 @@ pub enum CheckMode<'configs> {
     Configured(&'configs ConfigValues),
 }
 
+#[derive(Debug)]
+pub struct AnalyzeOutput {
+    pub thir: thir::Script,
+    pub diagnostics: Diagnostics,
+}
+
 pub fn check(
     script: &fsc_parse::ast::Script,
     mode: CheckMode<'_>,
@@ -31,6 +34,24 @@ pub fn check(
             Err(diagnostics) => diagnostics,
         },
     }
+}
+
+pub fn analyze(
+    script: &fsc_parse::ast::Script,
+    configs: &ConfigValues,
+) -> Result<AnalyzeOutput, Diagnostics> {
+    let analysis = analysis::analyze(script, configs)?;
+    let thir = thir::lower(
+        &analysis.hir,
+        &analysis.typeck,
+        &analysis.configs,
+        &analysis.constants,
+    );
+
+    Ok(AnalyzeOutput {
+        thir,
+        diagnostics: analysis.diagnostics,
+    })
 }
 
 pub fn required_configs(

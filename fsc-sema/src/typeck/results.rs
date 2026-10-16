@@ -18,6 +18,16 @@ pub(crate) struct TypeckResults {
 }
 
 impl TypeckResults {
+    pub(crate) fn expression_type(&self, expression: hir::ExprId) -> Option<&ExprType> {
+        self.expression_types
+            .get(expression)
+            .and_then(Option::as_ref)
+    }
+
+    pub(crate) fn field_index(&self, expression: hir::ExprId) -> Option<FieldIdx> {
+        self.field_indices.get(expression).and_then(|field| *field)
+    }
+
     pub(super) fn record_expression(&mut self, id: hir::ExprId, expression_type: ExprType) {
         let previous = self.expression_types.insert(id, Some(expression_type));
         debug_assert!(

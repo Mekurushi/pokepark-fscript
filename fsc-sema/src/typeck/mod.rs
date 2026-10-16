@@ -4,4 +4,4 @@ mod results;
 mod rules;
 
 pub(crate) use check::check;
-pub(crate) use results::TypeckResults;
+pub(crate) use results::{ExprType, TypeckResults};

@@ -1,4 +1,4 @@
-use super::{ConstValue, ExprId, FieldIdx, FunctionId, LocalId, Place, SourceInfo, SyscallNumber};
+use super::{ConstValue, ExprId, FieldIdx, FunctionId, LocalId, SourceInfo};
 use crate::types::Ty;
 use cranelift_entity::PrimaryMap;
 
@@ -46,7 +46,7 @@ pub enum StmtKind {
         initializer: Option<ExprId>,
     },
     Assign {
-        target: Place,
+        target: ExprId,
         value: ExprId,
     },
     Expression {
@@ -76,8 +76,10 @@ pub struct Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     Constant(ConstValue),
-    Load {
-        place: Place,
+    Local(LocalId),
+    Field {
+        base: ExprId,
+        field: FieldIdx,
     },
     Array {
         elements: Box<[ExprId]>,
@@ -99,7 +101,8 @@ pub enum ExprKind {
         arguments: Box<[ExprId]>,
     },
     RawSyscall {
-        number: SyscallNumber,
+        page: ExprId,
+        function: ExprId,
         arguments: Box<[ExprId]>,
     },
 }
