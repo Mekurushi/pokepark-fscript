@@ -1,0 +1,124 @@
+use super::super::error::ResolveError;
+use super::names::NameResolver;
+use crate::hir;
+use cranelift_entity::PrimaryMap;
+use fsc_diagnostics::{Diagnostic, Diagnostics};
+use fsc_parse::ast;
+
+#[derive(Debug, Default)]
+pub(super) struct ExprIdAllocator {
+    allocated: PrimaryMap<hir::ExprId, ()>,
+}
+
+impl ExprIdAllocator {
+    fn allocate(&mut self) -> hir::ExprId {
+        self.allocated.push(())
+    }
+}
+
+pub(super) struct ExpressionLowerer<'a> {
+    names: NameResolver<'a>,
+    diagnostics: &'a mut Diagnostics,
+    expression_ids: &'a mut ExprIdAllocator,
+}
+
+impl<'a> ExpressionLowerer<'a> {
+    pub(super) const fn new(
+        names: NameResolver<'a>,
+        diagnostics: &'a mut Diagnostics,
+        expression_ids: &'a mut ExprIdAllocator,
+    ) -> Self {
+        Self {
+            names,
+            diagnostics,
+            expression_ids,
+        }
+    }
+
+    pub(super) fn lower(&mut self, source: &ast::Expr) -> hir::Expr {
+        let kind = match &source.kind {
+            ast::ExprKind::IntLit(value) => hir::ExprKind::Int(*value),
+            ast::ExprKind::FloatLit(value) => hir::ExprKind::Float(*value),
+            ast::ExprKind::BoolLit(value) => hir::ExprKind::Bool(*value),
+            ast::ExprKind::StringLit(value) => hir::ExprKind::String(value.clone()),
+            ast::ExprKind::Var(name) => self.names.resolve(name).unwrap_or_else(|| {
+                hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
+                    ResolveError::UndeclaredName {
+                        name: name.clone(),
+                        reference_span: source.span,
+                    },
+                )))
+            }),
+            ast::ExprKind::Member {
+                base,
+                member,
+                member_span,
+            } => hir::ExprKind::Member {
+                base: Box::new(self.lower(base)),
+                member: member.clone(),
+                member_span: *member_span,
+            },
+            ast::ExprKind::BinOp { op, lhs, rhs } => hir::ExprKind::Binary {
+                op: lower_binary_operator(op),
+                lhs: Box::new(self.lower(lhs)),
+                rhs: Box::new(self.lower(rhs)),
+            },
+            ast::ExprKind::Unary { op, expr } => hir::ExprKind::Unary {
+                op: lower_unary_operator(op),
+                expr: Box::new(self.lower(expr)),
+            },
+            ast::ExprKind::Call {
+                callee,
+                callee_span,
+                args,
+            } => hir::ExprKind::Call {
+                callee: Box::new(hir::Expr {
+                    id: self.expression_ids.allocate(),
+                    kind: self.names.resolve(callee).unwrap_or_else(|| {
+                        hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
+                            ResolveError::UndeclaredName {
+                                name: callee.clone(),
+                                reference_span: *callee_span,
+                            },
+                        )))
+                    }),
+                    span: *callee_span,
+                }),
+                arguments: args.iter().map(|argument| self.lower(argument)).collect(),
+            },
+            ast::ExprKind::SysCall { args } => hir::ExprKind::RawSyscall {
+                arguments: args.iter().map(|argument| self.lower(argument)).collect(),
+            },
+        };
+
+        hir::Expr {
+            id: self.expression_ids.allocate(),
+            kind,
+            span: source.span,
+        }
+    }
+}
+
+const fn lower_binary_operator(operator: &ast::BinOp) -> hir::BinaryOp {
+    match operator {
+        ast::BinOp::Add => hir::BinaryOp::Add,
+        ast::BinOp::Sub => hir::BinaryOp::Sub,
+        ast::BinOp::Mul => hir::BinaryOp::Mul,
+        ast::BinOp::Div => hir::BinaryOp::Div,
+        ast::BinOp::Eq => hir::BinaryOp::Eq,
+        ast::BinOp::Neq => hir::BinaryOp::NotEq,
+        ast::BinOp::Lt => hir::BinaryOp::Less,
+        ast::BinOp::Gt => hir::BinaryOp::Greater,
+        ast::BinOp::Le => hir::BinaryOp::LessEq,
+        ast::BinOp::Ge => hir::BinaryOp::GreaterEq,
+        ast::BinOp::And => hir::BinaryOp::And,
+        ast::BinOp::Or => hir::BinaryOp::Or,
+    }
+}
+
+const fn lower_unary_operator(operator: &ast::UnaryOp) -> hir::UnaryOp {
+    match operator {
+        ast::UnaryOp::Not => hir::UnaryOp::Not,
+        ast::UnaryOp::Neg => hir::UnaryOp::Neg,
+    }
+}
