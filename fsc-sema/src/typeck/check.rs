@@ -5,10 +5,7 @@ use crate::hir;
 use crate::types::{self, Ty};
 use fsc_diagnostics::{Diagnostic, Diagnostics, ErrorGuaranteed, Span};
 
-pub(crate) fn check(
-    script: &hir::Script,
-    diagnostics: &mut Diagnostics,
-) -> Option<TypeckResults> {
+pub(crate) fn check(script: &hir::Script, diagnostics: &mut Diagnostics) -> Option<TypeckResults> {
     let mut checker = TypeChecker::new(script, diagnostics);
     checker.check_script();
     if checker.failed {
@@ -103,23 +100,13 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
         }
     }
 
-    fn check_block(
-        &mut self,
-        body: &hir::Body,
-        block: &hir::Block,
-        return_type: &Ty,
-    ) {
+    fn check_block(&mut self, body: &hir::Body, block: &hir::Block, return_type: &Ty) {
         for statement in &block.statements {
             self.check_statement(body, statement, return_type);
         }
     }
 
-    fn check_statement(
-        &mut self,
-        body: &hir::Body,
-        statement: &hir::Stmt,
-        return_type: &Ty,
-    ) {
+    fn check_statement(&mut self, body: &hir::Body, statement: &hir::Stmt, return_type: &Ty) {
         match &statement.kind {
             hir::StmtKind::Return(value) => {
                 self.check_return(body, value.as_ref(), return_type, statement.span);

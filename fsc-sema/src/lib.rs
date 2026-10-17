@@ -1,6 +1,7 @@
 mod analysis;
 mod config;
 mod const_eval;
+mod control_flow;
 mod hir;
 mod resolve;
 pub mod thir;
@@ -23,10 +24,7 @@ pub struct AnalyzeOutput {
     pub diagnostics: Diagnostics,
 }
 
-pub fn check(
-    script: &fsc_parse::ast::Script,
-    mode: CheckMode<'_>,
-) -> Diagnostics {
+pub fn check(script: &fsc_parse::ast::Script, mode: CheckMode<'_>) -> Diagnostics {
     match mode {
         CheckMode::Source => analysis::check(script),
         CheckMode::Configured(configs) => match analysis::analyze(script, configs) {

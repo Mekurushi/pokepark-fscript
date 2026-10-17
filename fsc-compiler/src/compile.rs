@@ -1,7 +1,7 @@
-use crate::diagnostic::CompileFailure;
 use crate::CheckMode;
 use crate::ConfigRequirement;
 use crate::ConfigValues;
+use crate::diagnostic::CompileFailure;
 use fsc_diagnostics::Diagnostic;
 
 #[derive(Debug, Clone, Copy)]
@@ -80,9 +80,7 @@ impl CompileArtifact {
 pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFailure> {
     let script = parse(request.source)?;
     let _analysis = fsc_sema::analyze(&script, request.config_values)
-        .map_err(|diagnostics| {
-            CompileFailure::from_diagnostics(diagnostics.entries().to_vec())
-        })?;
+        .map_err(|diagnostics| CompileFailure::from_diagnostics(diagnostics.entries().to_vec()))?;
     todo!("further support")
 }
 

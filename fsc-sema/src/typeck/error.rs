@@ -74,7 +74,11 @@ impl std::fmt::Display for TypeckError {
                 TypeName(ty)
             ),
             Self::UnsupportedConfigType { ty, .. } => {
-                write!(formatter, "config values cannot have type `{}`", TypeName(ty))
+                write!(
+                    formatter,
+                    "config values cannot have type `{}`",
+                    TypeName(ty)
+                )
             }
             Self::TypeMismatch {
                 expected, actual, ..
@@ -103,9 +107,7 @@ impl std::fmt::Display for TypeckError {
                 UnaryOpName(*op),
                 TypeName(actual)
             ),
-            Self::InvalidBinaryOperands {
-                op, lhs, rhs, ..
-            } => write!(
+            Self::InvalidBinaryOperands { op, lhs, rhs, .. } => write!(
                 formatter,
                 "operator `{}` cannot be applied to `{}` and `{}`",
                 BinaryOpName(*op),
@@ -143,9 +145,7 @@ impl From<TypeckError> for Diagnostic {
                 (*span, "missing raw syscall selector")
             }
             TypeckError::InvalidUnaryOperand { span, .. }
-            | TypeckError::InvalidBinaryOperands { span, .. } => {
-                (*span, "invalid operand type")
-            }
+            | TypeckError::InvalidBinaryOperands { span, .. } => (*span, "invalid operand type"),
             TypeckError::UnknownMember { span, .. } => (*span, "unknown member"),
             TypeckError::InvalidMemberBase { span, .. } => (*span, "has no members"),
             TypeckError::NotAssignable { span } => (*span, "not an assignment target"),

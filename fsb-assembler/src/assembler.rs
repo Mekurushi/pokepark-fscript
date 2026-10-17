@@ -7,12 +7,12 @@ use fsb_ir::{
     Terminator,
 };
 
+use crate::AssemblyUnit;
 use crate::emission::{JumpSubtype, Relocation};
 use crate::encoding::calculate_call_operand;
 use crate::error::{AssemblerError, AssemblerResult};
 use crate::function_symbols::FunctionSymbols;
 use crate::string_table::StringTable;
-use crate::AssemblyUnit;
 
 pub fn assemble_program(program: &Program) -> AssemblerResult<AssemblyUnit> {
     Assembler::new().assemble(program)

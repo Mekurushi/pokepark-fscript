@@ -129,10 +129,9 @@ impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
     fn lower_terminator(&mut self, terminator: &ast::Terminator) -> LowerResult<()> {
         let current = self.current_or_new_block();
         let (terminator, next) = match terminator {
-            ast::Terminator::Jump(target) => (
-                fsb_ir::Terminator::Jump(self.resolve_label(target)?),
-                None,
-            ),
+            ast::Terminator::Jump(target) => {
+                (fsb_ir::Terminator::Jump(self.resolve_label(target)?), None)
+            }
             ast::Terminator::Branch { kind, target } => {
                 let taken = self.resolve_label(target)?;
                 let not_taken = self.target.create_block();
@@ -152,14 +151,8 @@ impl<'ir, 'symbols, 'ast> FunctionLowerer<'ir, 'symbols, 'ast> {
                 },
                 None,
             ),
-            ast::Terminator::Exit1 => (
-                fsb_ir::Terminator::Exit(fsb_ir::ExitKind::Abort),
-                None,
-            ),
-            ast::Terminator::Exit2 => (
-                fsb_ir::Terminator::Exit(fsb_ir::ExitKind::Reset),
-                None,
-            ),
+            ast::Terminator::Exit1 => (fsb_ir::Terminator::Exit(fsb_ir::ExitKind::Abort), None),
+            ast::Terminator::Exit2 => (fsb_ir::Terminator::Exit(fsb_ir::ExitKind::Reset), None),
         };
 
         self.target.block_mut(current).set_terminator(terminator);
@@ -331,9 +324,7 @@ fn lower_conversion_kind(kind: ast::ConversionKind) -> fsb_ir::ConversionKind {
 fn lower_branch_kind(kind: ast::BranchKind) -> fsb_ir::BranchKind {
     match kind {
         ast::BranchKind::IfZero(mode) => fsb_ir::BranchKind::IfZero(lower_branch_mode(mode)),
-        ast::BranchKind::IfNonZero(mode) => {
-            fsb_ir::BranchKind::IfNonZero(lower_branch_mode(mode))
-        }
+        ast::BranchKind::IfNonZero(mode) => fsb_ir::BranchKind::IfNonZero(lower_branch_mode(mode)),
         ast::BranchKind::IfEqual => fsb_ir::BranchKind::IfEqual,
         ast::BranchKind::IfEqualImmediate(value) => fsb_ir::BranchKind::IfEqualImmediate(value),
     }

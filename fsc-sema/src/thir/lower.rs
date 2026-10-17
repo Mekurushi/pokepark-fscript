@@ -185,15 +185,11 @@ impl<'context, 'analysis> BodyLowerer<'context, 'analysis> {
             hir::ExprKind::Error(_) => {
                 unreachable!("error expression reached THIR lowering")
             }
-            hir::ExprKind::Int(value) => {
-                thir::ExprKind::Constant(thir::ConstValue::Int(*value))
-            }
+            hir::ExprKind::Int(value) => thir::ExprKind::Constant(thir::ConstValue::Int(*value)),
             hir::ExprKind::Float(value) => {
                 thir::ExprKind::Constant(thir::ConstValue::Float(*value))
             }
-            hir::ExprKind::Bool(value) => {
-                thir::ExprKind::Constant(thir::ConstValue::Bool(*value))
-            }
+            hir::ExprKind::Bool(value) => thir::ExprKind::Constant(thir::ConstValue::Bool(*value)),
             hir::ExprKind::String(value) => {
                 thir::ExprKind::Constant(thir::ConstValue::String(value.clone()))
             }

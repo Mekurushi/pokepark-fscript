@@ -1,5 +1,5 @@
-use super::error::ConstEvalError;
 use super::ConstValue;
+use super::error::ConstEvalError;
 use crate::hir;
 use fsc_diagnostics::Span;
 

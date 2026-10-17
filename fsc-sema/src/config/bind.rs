@@ -69,9 +69,5 @@ pub(crate) fn bind(
         bound.values.insert(item_id, Some(value.clone()));
     }
 
-    if failed {
-        None
-    } else {
-        Some(bound)
-    }
+    if failed { None } else { Some(bound) }
 }
