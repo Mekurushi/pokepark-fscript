@@ -2,6 +2,7 @@ use crate::config::{self, BoundConfigs, ConfigRequirement, ConfigValues};
 use crate::const_eval::{self, ConstEvalResults};
 use crate::control_flow;
 use crate::hir;
+use crate::raw_syscall::{self, RawSyscallResults};
 use crate::resolve;
 use crate::typeck::{self, TypeckResults};
 use fsc_diagnostics::Diagnostics;
@@ -12,6 +13,7 @@ pub(crate) struct Analysis {
     pub(crate) typeck: TypeckResults,
     pub(crate) configs: BoundConfigs,
     pub(crate) const_eval: ConstEvalResults,
+    pub(crate) raw_syscalls: RawSyscallResults,
     pub(crate) diagnostics: Diagnostics,
 }
 
@@ -58,11 +60,15 @@ pub(crate) fn analyze(
     let Some(const_eval) = const_eval::evaluate(&hir, &configs, &mut diagnostics) else {
         return Err(diagnostics);
     };
+    let Some(raw_syscalls) = raw_syscall::check(&hir, &const_eval, &mut diagnostics) else {
+        return Err(diagnostics);
+    };
     Ok(Analysis {
         hir,
         typeck,
         configs,
         const_eval,
+        raw_syscalls,
         diagnostics,
     })
 }

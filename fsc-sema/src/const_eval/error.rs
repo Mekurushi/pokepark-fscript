@@ -64,7 +64,7 @@ impl From<ConstEvalError> for Diagnostic {
                 diagnostic
             }
             ConstEvalError::NonConstantExpression { span, .. } => {
-                diagnostic.with_label(Label::primary(span, "requires evaluation at runtime"))
+                diagnostic.with_label(Label::primary(span, "cannot be evaluated at compile time"))
             }
             ConstEvalError::MissingConfigValue { span, .. } => diagnostic.with_label(
                 Label::primary(span, "a value must be bound before constant evaluation"),

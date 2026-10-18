@@ -34,6 +34,10 @@ impl ConstEvalResults {
         );
     }
 
+    pub(crate) fn expression(&self, expression: hir::ExprId) -> Option<&ConstValue> {
+        self.expressions.get(expression).and_then(Option::as_ref)
+    }
+
     pub(super) fn record_body(&mut self, owner: hir::ItemId, body: EvaluatedBodyConstants) {
         let previous = self.bodies.insert(owner, Some(body));
         debug_assert!(

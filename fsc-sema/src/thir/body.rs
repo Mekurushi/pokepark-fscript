@@ -101,10 +101,36 @@ pub enum ExprKind {
         arguments: Box<[ExprId]>,
     },
     RawSyscall {
-        page: ExprId,
-        function: ExprId,
+        page: RawSyscallPage,
+        function: RawSyscallFunction,
         arguments: Box<[ExprId]>,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RawSyscallPage(u8);
+
+impl RawSyscallPage {
+    pub(crate) const fn new(value: u8) -> Self {
+        Self(value)
+    }
+
+    pub const fn get(self) -> u8 {
+        self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RawSyscallFunction(u16);
+
+impl RawSyscallFunction {
+    pub(crate) const fn new(value: u16) -> Self {
+        Self(value)
+    }
+
+    pub const fn get(self) -> u16 {
+        self.0
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -3,6 +3,7 @@ mod config;
 mod const_eval;
 mod control_flow;
 mod hir;
+mod raw_syscall;
 mod resolve;
 pub mod thir;
 mod typeck;
@@ -44,6 +45,7 @@ pub fn analyze(
         &analysis.typeck,
         &analysis.configs,
         &analysis.const_eval,
+        &analysis.raw_syscalls,
     );
 
     Ok(AnalyzeOutput {

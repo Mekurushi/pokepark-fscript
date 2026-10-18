@@ -7,7 +7,8 @@ pub(crate) use lower::lower;
 
 pub use crate::types::FieldIdx;
 pub use body::{
-    BinaryOp, Block, Body, Expr, ExprKind, FieldExpr, Local, LocalKind, Stmt, StmtKind, UnaryOp,
+    BinaryOp, Block, Body, Expr, ExprKind, FieldExpr, Local, LocalKind, RawSyscallFunction,
+    RawSyscallPage, Stmt, StmtKind, UnaryOp,
 };
 pub use entity::{ExprId, FunctionId, LocalId};
 pub use value::ConstValue;

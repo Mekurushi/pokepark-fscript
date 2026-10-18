@@ -51,12 +51,18 @@ impl BodyLowerer<'_, '_> {
                 thir::ExprKind::Call { callee, arguments }
             }
             hir::ExprKind::RawSyscall { arguments } => {
-                let [page, function, arguments @ ..] = arguments.as_slice() else {
+                // destructuring the selector arguments out; again an implicit invariant, but tbh
+                // no clue if there is any better way; it should be good enough since syscalls
+                // are hopefully a temporary construct and/or escape solution
+                let [_, _, arguments @ ..] = arguments.as_slice() else {
                     unreachable!("raw syscall without selectors reached THIR lowering")
                 };
+                let Some(selectors) = self.context.raw_syscalls.selectors(expression.id) else {
+                    unreachable!("unresolved raw syscall selectors reached THIR lowering")
+                };
                 thir::ExprKind::RawSyscall {
-                    page: self.lower_expression(page),
-                    function: self.lower_expression(function),
+                    page: thir::RawSyscallPage::new(selectors.page),
+                    function: thir::RawSyscallFunction::new(selectors.function),
                     arguments: arguments
                         .iter()
                         .map(|argument| self.lower_expression(argument))

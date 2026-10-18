@@ -1,6 +1,7 @@
 use super::body::BodyLowerer;
 use crate::config::BoundConfigs;
 use crate::const_eval::ConstEvalResults;
+use crate::raw_syscall::RawSyscallResults;
 use crate::typeck::TypeckResults;
 use crate::{hir, thir};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
@@ -10,8 +11,9 @@ pub(crate) fn lower(
     typeck: &TypeckResults,
     configs: &BoundConfigs,
     constants: &ConstEvalResults,
+    raw_syscalls: &RawSyscallResults,
 ) -> thir::Script {
-    LoweringContext::new(hir, typeck, configs, constants).lower_script()
+    LoweringContext::new(hir, typeck, configs, constants, raw_syscalls).lower_script()
 }
 
 pub(super) struct FunctionMapping {
@@ -42,6 +44,7 @@ pub(super) struct LoweringContext<'analysis> {
     pub(super) typeck: &'analysis TypeckResults,
     pub(super) configs: &'analysis BoundConfigs,
     pub(super) constants: &'analysis ConstEvalResults,
+    pub(super) raw_syscalls: &'analysis RawSyscallResults,
     pub(super) functions: FunctionMapping,
 }
 
@@ -51,12 +54,14 @@ impl<'analysis> LoweringContext<'analysis> {
         typeck: &'analysis TypeckResults,
         configs: &'analysis BoundConfigs,
         constants: &'analysis ConstEvalResults,
+        raw_syscalls: &'analysis RawSyscallResults,
     ) -> Self {
         Self {
             hir,
             typeck,
             configs,
             constants,
+            raw_syscalls,
             functions: FunctionMapping::collect(hir),
         }
     }
