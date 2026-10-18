@@ -1,5 +1,5 @@
 use crate::config::{self, BoundConfigs, ConfigRequirement, ConfigValues};
-use crate::const_eval::{self, EvaluatedConstants};
+use crate::const_eval::{self, ConstEvalResults};
 use crate::control_flow;
 use crate::hir;
 use crate::resolve;
@@ -11,7 +11,7 @@ pub(crate) struct Analysis {
     pub(crate) hir: hir::Script,
     pub(crate) typeck: TypeckResults,
     pub(crate) configs: BoundConfigs,
-    pub(crate) constants: EvaluatedConstants,
+    pub(crate) const_eval: ConstEvalResults,
     pub(crate) diagnostics: Diagnostics,
 }
 
@@ -55,15 +55,14 @@ pub(crate) fn analyze(
         return Err(diagnostics);
     }
 
-    let Some(constants) = const_eval::evaluate_items(&hir, &configs, &mut diagnostics) else {
+    let Some(const_eval) = const_eval::evaluate(&hir, &configs, &mut diagnostics) else {
         return Err(diagnostics);
     };
-
     Ok(Analysis {
         hir,
         typeck,
         configs,
-        constants,
+        const_eval,
         diagnostics,
     })
 }

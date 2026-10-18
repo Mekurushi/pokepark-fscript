@@ -1,6 +1,6 @@
 use super::body::BodyLowerer;
 use crate::config::BoundConfigs;
-use crate::const_eval::EvaluatedConstants;
+use crate::const_eval::ConstEvalResults;
 use crate::typeck::TypeckResults;
 use crate::{hir, thir};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
@@ -9,7 +9,7 @@ pub(crate) fn lower(
     hir: &hir::Script,
     typeck: &TypeckResults,
     configs: &BoundConfigs,
-    constants: &EvaluatedConstants,
+    constants: &ConstEvalResults,
 ) -> thir::Script {
     LoweringContext::new(hir, typeck, configs, constants).lower_script()
 }
@@ -41,7 +41,7 @@ pub(super) struct LoweringContext<'analysis> {
     pub(super) hir: &'analysis hir::Script,
     pub(super) typeck: &'analysis TypeckResults,
     pub(super) configs: &'analysis BoundConfigs,
-    pub(super) constants: &'analysis EvaluatedConstants,
+    pub(super) constants: &'analysis ConstEvalResults,
     pub(super) functions: FunctionMapping,
 }
 
@@ -50,7 +50,7 @@ impl<'analysis> LoweringContext<'analysis> {
         hir: &'analysis hir::Script,
         typeck: &'analysis TypeckResults,
         configs: &'analysis BoundConfigs,
-        constants: &'analysis EvaluatedConstants,
+        constants: &'analysis ConstEvalResults,
     ) -> Self {
         Self {
             hir,

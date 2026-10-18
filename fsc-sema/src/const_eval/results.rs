@@ -3,12 +3,13 @@ use crate::hir;
 use cranelift_entity::SecondaryMap;
 
 #[derive(Debug, Default)]
-pub(crate) struct EvaluatedConstants {
+pub(crate) struct ConstEvalResults {
     items: SecondaryMap<hir::ItemId, Option<ConstValue>>,
     bodies: SecondaryMap<hir::ItemId, Option<EvaluatedBodyConstants>>,
+    expressions: SecondaryMap<hir::ExprId, Option<ConstValue>>,
 }
 
-impl EvaluatedConstants {
+impl ConstEvalResults {
     pub(super) fn record_item(&mut self, item: hir::ItemId, value: ConstValue) {
         let previous = self.items.insert(item, Some(value));
         debug_assert!(
@@ -23,6 +24,14 @@ impl EvaluatedConstants {
 
     pub(crate) fn local(&self, owner: hir::ItemId, local: hir::LocalId) -> Option<&ConstValue> {
         self.body(owner).and_then(|body| body.local(local))
+    }
+
+    pub(super) fn record_expression(&mut self, expression: hir::ExprId, value: ConstValue) {
+        let previous = self.expressions.insert(expression, Some(value));
+        debug_assert!(
+            previous.flatten().is_none(),
+            "constant value for expression {expression:?} was recorded more than once"
+        );
     }
 
     pub(super) fn record_body(&mut self, owner: hir::ItemId, body: EvaluatedBodyConstants) {

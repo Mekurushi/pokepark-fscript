@@ -43,7 +43,7 @@ pub fn analyze(
         &analysis.hir,
         &analysis.typeck,
         &analysis.configs,
-        &analysis.constants,
+        &analysis.const_eval,
     );
 
     Ok(AnalyzeOutput {
