@@ -103,6 +103,7 @@ impl Checker<'_> {
             }
             hir::ExprKind::RawSyscall { arguments } => {
                 if let [page, function, remaining @ ..] = arguments.as_slice() {
+                    //TODO: argument count check
                     self.check_selectors(expression.id, page, function);
                     self.check_expression(page);
                     self.check_expression(function);

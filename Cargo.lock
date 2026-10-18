@@ -297,6 +297,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fsc-mir"
+version = "0.1.0"
+dependencies = [
+ "cranelift-entity",
+ "fsc-diagnostics",
+ "fsc-sema",
+]
+
+[[package]]
 name = "fsc-parse"
 version = "0.1.0"
 dependencies = [
