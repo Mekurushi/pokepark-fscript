@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 fsc-diagnostics = { path = "../fsc-diagnostics" }
+fsc-mir = { path = "../fsc-mir" }
 fsc-parse = { path = "../fsc-parse" }
 fsc-sema = { path = "../fsc-sema" }
 

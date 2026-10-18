@@ -79,8 +79,9 @@ impl CompileArtifact {
 
 pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFailure> {
     let script = parse(request.source)?;
-    let _analysis = fsc_sema::analyze(&script, request.config_values)
+    let analysis = fsc_sema::analyze(&script, request.config_values)
         .map_err(|diagnostics| CompileFailure::from_diagnostics(diagnostics.entries().to_vec()))?;
+    let _mir = fsc_mir::lower(&analysis.thir);
     todo!("further support")
 }
 

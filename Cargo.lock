@@ -269,6 +269,7 @@ name = "fsc-compiler"
 version = "0.1.0"
 dependencies = [
  "fsc-diagnostics",
+ "fsc-mir",
  "fsc-parse",
  "fsc-sema",
 ]

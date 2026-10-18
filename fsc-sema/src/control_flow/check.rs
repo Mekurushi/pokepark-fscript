@@ -2,6 +2,8 @@ use super::error::ControlFlowError;
 use crate::hir;
 use fsc_diagnostics::{Diagnostic, Diagnostics};
 
+//TODO: check return fallthroughs
+
 pub(crate) fn check(script: &hir::Script, diagnostics: &mut Diagnostics) -> bool {
     let errors_before = diagnostics.error_count();
     let mut checker = ControlFlowChecker { diagnostics };
