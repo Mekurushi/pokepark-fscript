@@ -1,6 +1,6 @@
 use super::block::BlockLowerer;
-use crate::{CodegenError, CodegenResult, place::resolver::ResolvedPlace};
-use fsc_mir::{ConstValue, Constant, Operand, Rvalue, Ty, aggregate_fields};
+use crate::{place::resolver::ResolvedPlace, CodegenError, CodegenResult};
+use fsc_mir::{aggregate_fields, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty};
 
 impl BlockLowerer<'_, '_, '_> {
     pub(super) fn lower_rvalue_into(
@@ -11,10 +11,42 @@ impl BlockLowerer<'_, '_, '_> {
         match value {
             Rvalue::Use(operand) => self.lower_operand_into(operand, target),
             Rvalue::Unary { .. } | Rvalue::Binary { .. } => todo!("operator rvalue lowering"),
-            Rvalue::Array { .. } | Rvalue::Aggregate { .. } => {
-                todo!("aggregate rvalue lowering")
-            }
+            Rvalue::Array { elements } => self.lower_array_into(elements, target),
+            Rvalue::Aggregate { ty: _ty, fields } => self.lower_aggregate_into(fields, target),
         }
+    }
+
+    fn lower_array_into(
+        &mut self,
+        elements: &[Operand],
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        let Ty::Array { length, .. } = &target.ty else {
+            return Err(CodegenError::UnsupportedType(target.ty.clone()));
+        };
+        debug_assert_eq!(
+            elements.len(),
+            *length,
+            "MIR array rvalue must initialize every element"
+        );
+
+        for (index, element) in elements.iter().enumerate() {
+            let target = target.project_constant_index(index)?;
+            self.lower_operand_into(element, &target)?;
+        }
+        Ok(())
+    }
+
+    fn lower_aggregate_into(
+        &mut self,
+        fields: &[FieldOperand],
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        for field in fields {
+            let target = target.project_field(field.field)?;
+            self.lower_operand_into(&field.value, &target)?;
+        }
+        Ok(())
     }
 
     fn lower_operand_into(
