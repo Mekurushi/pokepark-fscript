@@ -1,26 +1,34 @@
 use super::block::BlockLowerer;
 use crate::{
-    CodegenError, CodegenResult,
-    place::resolver::{IndexedOffset, ResolvedPlace, StorageBase},
+    place::resolver::{IndexedOffset, ResolvedPlace, StorageBase}, CodegenError,
+    CodegenResult,
 };
 use fsb_ir::{AddressingMode, Instruction, IntegerOperation, MemoryWidth, Word};
-use fsc_mir::{ConstValue, Operand, Place, Ty};
+use fsc_mir::{ConstValue, Operand, Ty};
 
 impl BlockLowerer<'_, '_, '_> {
-    pub(super) fn lower_operand(&mut self, operand: &Operand) -> CodegenResult<()> {
+    pub(super) fn lower_scalar_operand(&mut self, operand: &Operand) -> CodegenResult<()> {
         match operand {
-            Operand::Place(place) => self.lower_place(place)?,
-            Operand::Constant(constant) => self.lower_constant_value(&constant.value),
-        }
-        Ok(())
-    }
-
-    fn lower_place(&mut self, place: &Place) -> CodegenResult<()> {
-        let place = self.places.resolve(place)?;
-        match &place.ty {
-            Ty::Int | Ty::Float | Ty::Bool | Ty::Str => self.lower_load_word(&place),
-            Ty::Vec3 | Ty::Array { .. } => todo!("multi-slot operand lowering"),
-            Ty::Void => todo!("void place reached code generation"),
+            Operand::Place(place) => {
+                let place = self.places.resolve(place)?;
+                match &place.ty {
+                    Ty::Int | Ty::Float | Ty::Bool | Ty::Str => self.lower_load_word(&place),
+                    Ty::Vec3 | Ty::Array { .. } | Ty::Void => {
+                        unreachable!("MIR scalar operand must have scalar type")
+                    }
+                }
+            }
+            Operand::Constant(constant) => {
+                match &constant.ty {
+                    Ty::Int | Ty::Float | Ty::Bool | Ty::Str => {
+                        self.lower_scalar_constant_value(&constant.value);
+                    }
+                    Ty::Vec3 | Ty::Array { .. } | Ty::Void => {
+                        unreachable!("MIR scalar operand must have scalar type")
+                    }
+                }
+                Ok(())
+            }
         }
     }
 
@@ -150,14 +158,14 @@ impl BlockLowerer<'_, '_, '_> {
         });
     }
 
-    pub(super) fn lower_constant_value(&mut self, value: &ConstValue) {
+    pub(super) fn lower_scalar_constant_value(&mut self, value: &ConstValue) {
         let instruction = match value {
             ConstValue::Int(value) => Instruction::PushConstant(Word::from_i32(*value)),
             ConstValue::Float(value) => Instruction::PushConstant(Word::from_f32(*value)),
             ConstValue::Bool(value) => Instruction::PushConstant(Word::from_i32(i32::from(*value))),
             ConstValue::String(value) => Instruction::LoadString(value.clone()),
             ConstValue::Array(_) | ConstValue::Aggregate(_) => {
-                todo!("aggregate constant lowering")
+                unreachable!("aggregate/array constant reached scalar constant lowering")
             }
         };
         self.output.push_instruction(instruction);

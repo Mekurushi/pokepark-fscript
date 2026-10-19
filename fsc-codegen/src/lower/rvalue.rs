@@ -1,6 +1,7 @@
 use super::block::BlockLowerer;
 use crate::{place::resolver::ResolvedPlace, CodegenError, CodegenResult};
-use fsc_mir::{aggregate_fields, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty};
+use fsb_ir::{FloatOperation, Instruction, IntegerOperation};
+use fsc_mir::{aggregate_fields, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty, UnaryOp};
 
 impl BlockLowerer<'_, '_, '_> {
     pub(super) fn lower_rvalue_into(
@@ -10,10 +11,23 @@ impl BlockLowerer<'_, '_, '_> {
     ) -> CodegenResult<()> {
         match value {
             Rvalue::Use(operand) => self.lower_operand_into(operand, target),
-            Rvalue::Unary { .. } | Rvalue::Binary { .. } => todo!("operator rvalue lowering"),
+            Rvalue::Unary { op, operand } => self.lower_unary_into(*op, operand, target),
+            Rvalue::Binary { .. } => todo!("binary rvalue lowering"),
             Rvalue::Array { elements } => self.lower_array_into(elements, target),
             Rvalue::Aggregate { ty: _ty, fields } => self.lower_aggregate_into(fields, target),
         }
+    }
+
+    fn lower_unary_into(
+        &mut self,
+        op: UnaryOp,
+        operand: &Operand,
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        self.lower_scalar_operand(operand)?;
+        self.output
+            .push_instruction(lower_unary_instruction(op, &target.ty));
+        self.lower_store_word(target)
     }
 
     fn lower_array_into(
@@ -87,7 +101,7 @@ impl BlockLowerer<'_, '_, '_> {
                 }
                 Ok(())
             }
-            Ty::Void => todo!("void place reached code generation"),
+            Ty::Void => unreachable!("void place reached codegen"),
         }
     }
 
@@ -110,7 +124,7 @@ impl BlockLowerer<'_, '_, '_> {
             | (ConstValue::Float(_), Ty::Float)
             | (ConstValue::Bool(_), Ty::Bool)
             | (ConstValue::String(_), Ty::Str) => {
-                self.lower_constant_value(value);
+                self.lower_scalar_constant_value(value);
                 self.lower_store_word(target)
             }
             (ConstValue::Array(values), Ty::Array { element, length }) => {
@@ -145,5 +159,14 @@ impl BlockLowerer<'_, '_, '_> {
             }
             _ => Err(CodegenError::UnsupportedType(ty.clone())),
         }
+    }
+}
+
+fn lower_unary_instruction(op: UnaryOp, operand: &Ty) -> Instruction {
+    match (op, operand) {
+        (UnaryOp::Not, Ty::Bool) => Instruction::Integer(IntegerOperation::IsZero),
+        (UnaryOp::Negate, Ty::Int) => Instruction::Integer(IntegerOperation::Negate),
+        (UnaryOp::Negate, Ty::Float) => Instruction::Float(FloatOperation::Negate),
+        _ => unreachable!("unsupported unary operand reached codegen"),
     }
 }
