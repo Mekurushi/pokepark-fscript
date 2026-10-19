@@ -1,3 +1,4 @@
+use crate::data::StaticData;
 use crate::{CodegenError, CodegenResult};
 use cranelift_entity::SecondaryMap;
 use fsb_ir::{ExternalFunction, FunctionRef, Program};
@@ -5,12 +6,14 @@ use fsc_mir::{FunctionId, FunctionKind, Linkage, Script};
 
 pub(super) struct DeclaredProgram {
     pub(super) program: Program,
+    pub(super) statics: StaticData,
     functions: SecondaryMap<FunctionId, Option<FunctionRef>>,
 }
 
 impl DeclaredProgram {
-    pub(super) fn collect(script: &Script) -> Self {
+    pub(super) fn collect(script: &Script) -> CodegenResult<Self> {
         let mut program = Program::new();
+        let statics = StaticData::declare(script, &mut program)?;
         let mut functions = SecondaryMap::new();
 
         for (source, function) in &script.functions {
@@ -25,7 +28,11 @@ impl DeclaredProgram {
             functions.insert(source, Some(reference));
         }
 
-        Self { program, functions }
+        Ok(Self {
+            program,
+            statics,
+            functions,
+        })
     }
 
     pub(super) fn function(&self, source: FunctionId) -> CodegenResult<FunctionRef> {
@@ -33,6 +40,10 @@ impl DeclaredProgram {
             .get(source)
             .and_then(Clone::clone)
             .ok_or(CodegenError::MissingFunctionMapping(source))
+    }
+
+    pub(super) fn static_data(&self, source: fsc_mir::StaticId) -> CodegenResult<fsb_ir::DataRef> {
+        self.statics.reference(source)
     }
 }
 

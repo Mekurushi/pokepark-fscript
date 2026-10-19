@@ -10,6 +10,15 @@ pub enum CodegenError {
     },
     MissingFunctionMapping(fsc_mir::FunctionId),
     MissingLocalAllocation(fsc_mir::LocalId),
+    MissingStaticMapping(fsc_mir::StaticId),
+    InvalidStaticInitializer {
+        static_id: fsc_mir::StaticId,
+        ty: fsc_mir::Ty,
+    },
+    UnsupportedStaticType {
+        static_id: fsc_mir::StaticId,
+        ty: fsc_mir::Ty,
+    },
     UnsupportedLocalType {
         local: fsc_mir::LocalId,
         ty: fsc_mir::Ty,
@@ -35,6 +44,21 @@ impl std::fmt::Display for CodegenError {
             }
             Self::MissingLocalAllocation(local) => {
                 write!(f, "no frame allocation exists for MIR local `{local:?}`")
+            }
+            Self::MissingStaticMapping(static_id) => {
+                write!(f, "no data mapping exists for MIR static `{static_id:?}`")
+            }
+            Self::InvalidStaticInitializer { static_id, ty } => {
+                write!(
+                    f,
+                    "initializer for MIR static `{static_id:?}` does not match type `{ty:?}`"
+                )
+            }
+            Self::UnsupportedStaticType { static_id, ty } => {
+                write!(
+                    f,
+                    "MIR static `{static_id:?}` of type `{ty:?}` has no FSB data representation"
+                )
             }
             Self::UnsupportedLocalType { local, ty } => {
                 write!(

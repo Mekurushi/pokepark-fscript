@@ -1,6 +1,6 @@
-use super::layout::{slot_width, FrameLayout, FrameSlot};
+use super::layout::{FrameLayout, FrameSlot, slot_width};
 use crate::{CodegenError, CodegenResult};
-use fsc_mir::{aggregate_fields, LocalId, Place, PlaceBase, ProjectionElem, Ty};
+use fsc_mir::{LocalId, Place, PlaceBase, ProjectionElem, Ty, aggregate_fields};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IndexedOffset {
