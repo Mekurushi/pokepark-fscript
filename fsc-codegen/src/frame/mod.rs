@@ -1,4 +1,3 @@
 mod layout;
-mod place;
 
-pub(crate) use layout::FrameLayout;
+pub(crate) use layout::{FrameLayout, FrameSlot, slot_width};

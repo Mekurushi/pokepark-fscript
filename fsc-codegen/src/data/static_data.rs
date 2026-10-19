@@ -1,15 +1,21 @@
 use crate::{CodegenError, CodegenResult};
 use cranelift_entity::SecondaryMap;
 use fsb_ir::{DataRef, Program, Word};
-use fsc_mir::{aggregate_fields, ConstValue, Script, StaticId, Ty};
+use fsc_mir::{ConstValue, Script, StaticId, Ty, aggregate_fields};
 
 pub(crate) struct StaticData {
-    references: SecondaryMap<StaticId, Option<DataRef>>,
+    declarations: SecondaryMap<StaticId, Option<DeclaredStatic>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct DeclaredStatic {
+    pub(crate) base: DataRef,
+    pub(crate) ty: Ty,
 }
 
 impl StaticData {
     pub(crate) fn declare(script: &Script, program: &mut Program) -> CodegenResult<Self> {
-        let mut references = SecondaryMap::new();
+        let mut declarations = SecondaryMap::new();
 
         for (static_id, declaration) in &script.statics {
             let mut words = Vec::new();
@@ -20,16 +26,26 @@ impl StaticData {
                 &mut words,
             )?;
             let data = program.create_data(Some(declaration.name.clone()), words);
-            references.insert(static_id, Some(DataRef::Internal(data)));
+            declarations.insert(
+                static_id,
+                Some(DeclaredStatic {
+                    base: DataRef::Internal(data),
+                    ty: declaration.ty.clone(),
+                }),
+            );
         }
 
-        Ok(Self { references })
+        Ok(Self { declarations })
     }
 
     pub(crate) fn reference(&self, source: StaticId) -> CodegenResult<DataRef> {
-        self.references
+        Ok(self.declaration(source)?.base.clone())
+    }
+
+    pub(crate) fn declaration(&self, source: StaticId) -> CodegenResult<&DeclaredStatic> {
+        self.declarations
             .get(source)
-            .and_then(Clone::clone)
+            .and_then(Option::as_ref)
             .ok_or(CodegenError::MissingStaticMapping(source))
     }
 }

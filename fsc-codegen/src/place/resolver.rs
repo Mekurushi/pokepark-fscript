@@ -1,43 +1,55 @@
-use super::layout::{FrameLayout, FrameSlot, slot_width};
-use crate::{CodegenError, CodegenResult};
-use fsc_mir::{LocalId, Place, PlaceBase, ProjectionElem, Ty, aggregate_fields};
+use crate::{
+    CodegenError, CodegenResult,
+    data::StaticData,
+    frame::{FrameLayout, FrameSlot, slot_width},
+};
+use fsb_ir::DataRef;
+use fsc_mir::{Body, Place, PlaceBase, ProjectionElem, Ty, aggregate_fields};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IndexedOffset {
-    pub(crate) index: LocalId,
+    pub(crate) index: FrameSlot,
     pub(crate) stride: u16,
     pub(crate) length: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum StorageBase {
+    Frame(FrameSlot),
+    Data(DataRef),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ResolvedPlace {
-    pub(crate) base: FrameSlot,
+    pub(crate) base: StorageBase,
     pub(crate) static_offset: u16,
     pub(crate) indexed_offsets: Box<[IndexedOffset]>,
     pub(crate) ty: Ty,
 }
 
-impl FrameLayout {
-    pub(crate) fn resolve(
-        &self,
-        body: &fsc_mir::Body,
-        place: &Place,
-    ) -> CodegenResult<ResolvedPlace> {
-        let local = match place.base {
-            PlaceBase::Local(local) => local,
-            PlaceBase::Static(_static_id) => {
-                todo!("Static handling");
-            }
-        };
-        let base = self.base(local)?;
+pub(crate) struct PlaceResolver<'layout, 'mir> {
+    frame: &'layout FrameLayout,
+    statics: &'layout StaticData,
+    body: &'mir Body,
+}
+
+impl<'layout, 'mir> PlaceResolver<'layout, 'mir> {
+    pub(crate) const fn new(
+        frame: &'layout FrameLayout,
+        statics: &'layout StaticData,
+        body: &'mir Body,
+    ) -> Self {
+        Self {
+            frame,
+            statics,
+            body,
+        }
+    }
+
+    pub(crate) fn resolve(&self, place: &Place) -> CodegenResult<ResolvedPlace> {
+        let (base, mut ty) = self.resolve_base(place.base)?;
         let mut static_offset = 0_u16;
         let mut indexed_offsets = Vec::new();
-        let mut ty = body
-            .locals
-            .get(local)
-            .ok_or(CodegenError::MissingLocalAllocation(local))?
-            .ty
-            .clone();
 
         for projection in &place.projection {
             match projection {
@@ -77,15 +89,11 @@ impl FrameLayout {
                     let stride = slot_width(element)
                         .ok_or_else(|| CodegenError::UnsupportedType((**element).clone()))?;
                     indexed_offsets.push(IndexedOffset {
-                        index: *index,
+                        index: self.frame.base(*index)?,
                         stride,
                         length: *length,
                     });
                     ty = (**element).clone();
-
-                    // local arrays are possible in the stack with load_arg_address + indexed
-                    // access with lwi, swi. Only using StackSlot = word to make the first step
-                    // easier and later on improve smth like packed bools
                 }
             }
         }
@@ -96,5 +104,28 @@ impl FrameLayout {
             indexed_offsets: indexed_offsets.into_boxed_slice(),
             ty,
         })
+    }
+
+    fn resolve_base(&self, base: PlaceBase) -> CodegenResult<(StorageBase, Ty)> {
+        match base {
+            PlaceBase::Local(local) => {
+                let base = StorageBase::Frame(self.frame.base(local)?);
+                let ty = self
+                    .body
+                    .locals
+                    .get(local)
+                    .ok_or(CodegenError::MissingLocalAllocation(local))?
+                    .ty
+                    .clone();
+                Ok((base, ty))
+            }
+            PlaceBase::Static(static_id) => {
+                let declaration = self.statics.declaration(static_id)?;
+                Ok((
+                    StorageBase::Data(declaration.base.clone()),
+                    declaration.ty.clone(),
+                ))
+            }
+        }
     }
 }

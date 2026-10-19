@@ -2,6 +2,7 @@ mod data;
 mod error;
 mod frame;
 mod lower;
+mod place;
 
 pub use error::{CodegenError, CodegenResult};
 

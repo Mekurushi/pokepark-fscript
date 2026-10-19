@@ -107,7 +107,7 @@ impl FrameLayout {
         self.parameter_slots.get() + self.local_slots.get()
     }
 
-    pub(super) fn base(&self, local: LocalId) -> CodegenResult<FrameSlot> {
+    pub(crate) fn base(&self, local: LocalId) -> CodegenResult<FrameSlot> {
         self.allocations
             .get(local)
             .and_then(|allocation| *allocation)
@@ -122,7 +122,7 @@ fn is_parameter(local: LocalId, argument_count: usize) -> bool {
     index > RETURN_PLACE.index() && index <= argument_count
 }
 
-pub(super) fn slot_width(ty: &Ty) -> Option<u16> {
+pub(crate) fn slot_width(ty: &Ty) -> Option<u16> {
     if let Some(fields) = aggregate_fields(ty) {
         return fields.iter().try_fold(0_u16, |width, field| {
             width.checked_add(slot_width(field.ty())?)
