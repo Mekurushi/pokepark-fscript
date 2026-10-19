@@ -225,10 +225,8 @@ impl BodyBuilder<'_> {
         //     let result = lhs && rhs;
         //     let result = lhs || rhs;
         let expression_data = self.thir.expressions[expression].clone();
-        let destination = Place {
-            local: self.allocate_temporary(&expression_data.ty, expression_data.source),
-            projection: Box::new([]),
-        };
+        let destination =
+            Place::from_local(self.allocate_temporary(&expression_data.ty, expression_data.source));
 
         self.lower_condition_into(expression, destination.clone());
         Operand::Place(destination)

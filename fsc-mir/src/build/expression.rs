@@ -51,10 +51,7 @@ impl BodyBuilder<'_> {
                     let expression = &self.thir.expressions[expression];
                     (expression.ty.clone(), expression.source)
                 };
-                let destination = Place {
-                    local: self.allocate_temporary(&ty, source),
-                    projection: Box::new([]),
-                };
+                let destination = Place::from_local(self.allocate_temporary(&ty, source));
                 self.lower_effect(expression, Some(destination.clone()));
                 Operand::Place(destination)
             }
@@ -194,27 +191,18 @@ impl BodyBuilder<'_> {
 
     pub(super) fn lower_place(&self, expression: thir::ExprId) -> Place {
         match &self.thir.expressions[expression].kind {
-            thir::ExprKind::Local(local) => Place {
-                local: self.mapped_local(*local),
-                projection: Box::new([]),
-            },
+            thir::ExprKind::Local(local) => Place::from_local(self.mapped_local(*local)),
             thir::ExprKind::Field { base, field } => append_field(self.lower_place(*base), *field),
             _ => unreachable!("THIR place must be rooted in a local"),
         }
     }
 
     pub(super) fn local_place(&self, local: thir::LocalId) -> Place {
-        Place {
-            local: self.mapped_local(local),
-            projection: Box::new([]),
-        }
+        Place::from_local(self.mapped_local(local))
     }
 
     pub(super) fn return_place() -> Place {
-        Place {
-            local: RETURN_PLACE,
-            projection: Box::new([]),
-        }
+        Place::from_local(RETURN_PLACE)
     }
 
     fn lower_field_value(&mut self, base: thir::ExprId, field: fsc_sema::types::FieldIdx) -> Place {
@@ -235,10 +223,7 @@ impl BodyBuilder<'_> {
     }
 
     fn materialize(&mut self, value: Rvalue, ty: &Ty, source: thir::SourceInfo) -> Place {
-        let destination = Place {
-            local: self.allocate_temporary(ty, source),
-            projection: Box::new([]),
-        };
+        let destination = Place::from_local(self.allocate_temporary(ty, source));
 
         self.cfg.push_statement(Statement {
             kind: StatementKind::Assign {

@@ -49,6 +49,7 @@ impl<'thir> LoweringContext<'thir> {
     }
 
     fn lower_script(&self) -> Script {
+        let statics = PrimaryMap::new();
         let mut functions = PrimaryMap::new();
 
         for (expected, source) in &self.functions.source_functions {
@@ -57,7 +58,7 @@ impl<'thir> LoweringContext<'thir> {
             debug_assert_eq!(actual, expected);
         }
 
-        Script { functions }
+        Script { statics, functions }
     }
 
     fn lower_function(&self, function: thir::FunctionId) -> Function {

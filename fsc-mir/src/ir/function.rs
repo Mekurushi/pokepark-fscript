@@ -1,9 +1,10 @@
-use super::{Body, FunctionId, SourceInfo};
+use super::{Body, FunctionId, SourceInfo, StaticDecl, StaticId};
 use cranelift_entity::PrimaryMap;
 use fsc_sema::types::Ty;
 
 #[derive(Debug, Default)]
 pub struct Script {
+    pub statics: PrimaryMap<StaticId, StaticDecl>,
     pub functions: PrimaryMap<FunctionId, Function>,
 }
 

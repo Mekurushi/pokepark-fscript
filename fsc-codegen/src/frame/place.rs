@@ -1,6 +1,6 @@
-use super::layout::{FrameLayout, FrameSlot, slot_width};
+use super::layout::{slot_width, FrameLayout, FrameSlot};
 use crate::{CodegenError, CodegenResult};
-use fsc_mir::{LocalId, Place, ProjectionElem, Ty, aggregate_fields};
+use fsc_mir::{aggregate_fields, LocalId, Place, PlaceBase, ProjectionElem, Ty};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IndexedOffset {
@@ -23,13 +23,19 @@ impl FrameLayout {
         body: &fsc_mir::Body,
         place: &Place,
     ) -> CodegenResult<ResolvedPlace> {
-        let base = self.base(place.local)?;
+        let local = match place.base {
+            PlaceBase::Local(local) => local,
+            PlaceBase::Static(_static_id) => {
+                todo!("Static handling");
+            }
+        };
+        let base = self.base(local)?;
         let mut static_offset = 0_u16;
         let mut indexed_offsets = Vec::new();
         let mut ty = body
             .locals
-            .get(place.local)
-            .ok_or(CodegenError::MissingLocalAllocation(place.local))?
+            .get(local)
+            .ok_or(CodegenError::MissingLocalAllocation(local))?
             .ty
             .clone();
 

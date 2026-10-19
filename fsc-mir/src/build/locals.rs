@@ -94,10 +94,7 @@ impl LocalState {
 fn lower_debug_info(local: &thir::Local, lowered: LocalId) -> VariableDebugInfo {
     VariableDebugInfo {
         name: local.name.clone(),
-        value: DebugValue::Place(Place {
-            local: lowered,
-            projection: Box::new([]),
-        }),
+        value: DebugValue::Place(Place::from_local(lowered)),
         source: lower_source(local.source),
     }
 }
