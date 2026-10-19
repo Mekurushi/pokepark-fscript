@@ -1,33 +1,32 @@
 use super::block::BlockLowerer;
 use crate::{
-    place::resolver::{IndexedOffset, ResolvedPlace, StorageBase}, CodegenError,
-    CodegenResult,
+    CodegenError, CodegenResult,
+    place::resolver::{IndexedOffset, ResolvedPlace, StorageBase},
 };
 use fsb_ir::{AddressingMode, Instruction, IntegerOperation, MemoryWidth, Word};
 use fsc_mir::{ConstValue, Operand, Ty};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ScalarKind {
+    Integer,
+    Float,
+    Bool,
+    String,
+}
+
 impl BlockLowerer<'_, '_, '_> {
-    pub(super) fn lower_scalar_operand(&mut self, operand: &Operand) -> CodegenResult<()> {
+    pub(super) fn lower_scalar_operand(&mut self, operand: &Operand) -> CodegenResult<ScalarKind> {
         match operand {
             Operand::Place(place) => {
                 let place = self.places.resolve(place)?;
-                match &place.ty {
-                    Ty::Int | Ty::Float | Ty::Bool | Ty::Str => self.lower_load_word(&place),
-                    Ty::Vec3 | Ty::Array { .. } | Ty::Void => {
-                        unreachable!("MIR scalar operand must have scalar type")
-                    }
-                }
+                let kind = scalar_kind(&place.ty);
+                self.lower_load_word(&place)?;
+                Ok(kind)
             }
             Operand::Constant(constant) => {
-                match &constant.ty {
-                    Ty::Int | Ty::Float | Ty::Bool | Ty::Str => {
-                        self.lower_scalar_constant_value(&constant.value);
-                    }
-                    Ty::Vec3 | Ty::Array { .. } | Ty::Void => {
-                        unreachable!("MIR scalar operand must have scalar type")
-                    }
-                }
-                Ok(())
+                let kind = scalar_kind(&constant.ty);
+                self.lower_scalar_constant_value(&constant.value);
+                Ok(kind)
             }
         }
     }
@@ -169,5 +168,17 @@ impl BlockLowerer<'_, '_, '_> {
             }
         };
         self.output.push_instruction(instruction);
+    }
+}
+
+fn scalar_kind(ty: &Ty) -> ScalarKind {
+    match ty {
+        Ty::Int => ScalarKind::Integer,
+        Ty::Float => ScalarKind::Float,
+        Ty::Bool => ScalarKind::Bool,
+        Ty::Str => ScalarKind::String,
+        Ty::Vec3 | Ty::Array { .. } | Ty::Void => {
+            unreachable!("MIR scalar operand must have scalar type")
+        }
     }
 }

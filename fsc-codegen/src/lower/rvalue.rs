@@ -1,7 +1,9 @@
-use super::block::BlockLowerer;
-use crate::{place::resolver::ResolvedPlace, CodegenError, CodegenResult};
-use fsb_ir::{FloatOperation, Instruction, IntegerOperation};
-use fsc_mir::{aggregate_fields, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty, UnaryOp};
+use super::{block::BlockLowerer, operand::ScalarKind};
+use crate::{CodegenError, CodegenResult, place::resolver::ResolvedPlace};
+use fsb_ir::{Comparison, FloatOperation, Instruction, IntegerOperation};
+use fsc_mir::{
+    BinaryOp, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty, UnaryOp, aggregate_fields,
+};
 
 impl BlockLowerer<'_, '_, '_> {
     pub(super) fn lower_rvalue_into(
@@ -12,7 +14,7 @@ impl BlockLowerer<'_, '_, '_> {
         match value {
             Rvalue::Use(operand) => self.lower_operand_into(operand, target),
             Rvalue::Unary { op, operand } => self.lower_unary_into(*op, operand, target),
-            Rvalue::Binary { .. } => todo!("binary rvalue lowering"),
+            Rvalue::Binary { op, lhs, rhs } => self.lower_binary_into(*op, lhs, rhs, target),
             Rvalue::Array { elements } => self.lower_array_into(elements, target),
             Rvalue::Aggregate { ty: _ty, fields } => self.lower_aggregate_into(fields, target),
         }
@@ -24,9 +26,25 @@ impl BlockLowerer<'_, '_, '_> {
         operand: &Operand,
         target: &ResolvedPlace,
     ) -> CodegenResult<()> {
-        self.lower_scalar_operand(operand)?;
+        let operand = self.lower_scalar_operand(operand)?;
         self.output
-            .push_instruction(lower_unary_instruction(op, &target.ty));
+            .push_instruction(lower_unary_instruction(op, operand));
+        self.lower_store_word(target)
+    }
+
+    fn lower_binary_into(
+        &mut self,
+        op: BinaryOp,
+        lhs: &Operand,
+        rhs: &Operand,
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        let lhs = self.lower_scalar_operand(lhs)?;
+        let rhs = self.lower_scalar_operand(rhs)?;
+        debug_assert_eq!(lhs, rhs, "MIR binary operands must have the same type");
+
+        self.output
+            .push_instruction(lower_binary_instruction(op, lhs));
         self.lower_store_word(target)
     }
 
@@ -162,11 +180,57 @@ impl BlockLowerer<'_, '_, '_> {
     }
 }
 
-fn lower_unary_instruction(op: UnaryOp, operand: &Ty) -> Instruction {
+fn lower_unary_instruction(op: UnaryOp, operand: ScalarKind) -> Instruction {
     match (op, operand) {
-        (UnaryOp::Not, Ty::Bool) => Instruction::Integer(IntegerOperation::IsZero),
-        (UnaryOp::Negate, Ty::Int) => Instruction::Integer(IntegerOperation::Negate),
-        (UnaryOp::Negate, Ty::Float) => Instruction::Float(FloatOperation::Negate),
+        (UnaryOp::Not, ScalarKind::Bool) => Instruction::Integer(IntegerOperation::IsZero),
+        (UnaryOp::Negate, ScalarKind::Integer) => Instruction::Integer(IntegerOperation::Negate),
+        (UnaryOp::Negate, ScalarKind::Float) => Instruction::Float(FloatOperation::Negate),
         _ => unreachable!("unsupported unary operand reached codegen"),
+    }
+}
+
+fn lower_binary_instruction(op: BinaryOp, operands: ScalarKind) -> Instruction {
+    match (op, operands) {
+        (BinaryOp::Add, ScalarKind::Integer) => Instruction::Integer(IntegerOperation::Add),
+        (BinaryOp::Subtract, ScalarKind::Integer) => {
+            Instruction::Integer(IntegerOperation::Subtract)
+        }
+        (BinaryOp::Multiply, ScalarKind::Integer) => {
+            Instruction::Integer(IntegerOperation::Multiply)
+        }
+        (BinaryOp::Divide, ScalarKind::Integer) => Instruction::Integer(IntegerOperation::Divide),
+        (BinaryOp::Add, ScalarKind::Float) => Instruction::Float(FloatOperation::Add),
+        (BinaryOp::Subtract, ScalarKind::Float) => Instruction::Float(FloatOperation::Subtract),
+        (BinaryOp::Multiply, ScalarKind::Float) => Instruction::Float(FloatOperation::Multiply),
+        (BinaryOp::Divide, ScalarKind::Float) => Instruction::Float(FloatOperation::Divide),
+        (BinaryOp::Equal, ScalarKind::Integer | ScalarKind::Bool) => {
+            Instruction::IntegerCompare(Comparison::Equal)
+        }
+        (BinaryOp::NotEqual, ScalarKind::Integer | ScalarKind::Bool) => {
+            Instruction::IntegerCompare(Comparison::NotEqual)
+        }
+        (BinaryOp::Less, ScalarKind::Integer) => Instruction::IntegerCompare(Comparison::LessThan),
+        (BinaryOp::Greater, ScalarKind::Integer) => {
+            Instruction::IntegerCompare(Comparison::GreaterThan)
+        }
+        (BinaryOp::LessEqual, ScalarKind::Integer) => {
+            Instruction::IntegerCompare(Comparison::LessOrEqual)
+        }
+        (BinaryOp::GreaterEqual, ScalarKind::Integer) => {
+            Instruction::IntegerCompare(Comparison::GreaterOrEqual)
+        }
+        (BinaryOp::Equal, ScalarKind::Float) => Instruction::FloatCompare(Comparison::Equal),
+        (BinaryOp::NotEqual, ScalarKind::Float) => Instruction::FloatCompare(Comparison::NotEqual),
+        (BinaryOp::Less, ScalarKind::Float) => Instruction::FloatCompare(Comparison::LessThan),
+        (BinaryOp::Greater, ScalarKind::Float) => {
+            Instruction::FloatCompare(Comparison::GreaterThan)
+        }
+        (BinaryOp::LessEqual, ScalarKind::Float) => {
+            Instruction::FloatCompare(Comparison::LessOrEqual)
+        }
+        (BinaryOp::GreaterEqual, ScalarKind::Float) => {
+            Instruction::FloatCompare(Comparison::GreaterOrEqual)
+        }
+        _ => unreachable!("unsupported binary operands reached codegen"),
     }
 }
