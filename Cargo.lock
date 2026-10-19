@@ -265,6 +265,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fsc-codegen"
+version = "0.1.0"
+dependencies = [
+ "cranelift-entity",
+ "fsb-ir",
+ "fsc-mir",
+]
+
+[[package]]
 name = "fsc-compiler"
 version = "0.1.0"
 dependencies = [

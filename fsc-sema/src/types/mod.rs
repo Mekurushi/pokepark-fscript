@@ -1,7 +1,7 @@
 mod aggregate;
 
-pub use aggregate::FieldIdx;
 pub(crate) use aggregate::aggregate_definition;
+pub use aggregate::{AggregateField, FieldIdx, aggregate_fields};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Ty {

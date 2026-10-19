@@ -1,56 +1,52 @@
-use fsb_assembler::error::AssemblerError;
-use fsc_sema::thir::LocalId;
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CodegenError {
-    // TODO: more check errors should wander into check module
-    UndeclaredVariable(String),
-
-    AlreadyDeclared(String),
-
     FrameTooLarge,
-
-    UnknownLocal(LocalId),
-
-    DuplicateLocal(LocalId),
-
-    InvalidLocalType(LocalId),
-
-    Assembler(String),
+    InvalidFieldProjection {
+        ty: fsc_mir::Ty,
+        field: fsc_mir::FieldIdx,
+    },
+    InvalidIndexProjection {
+        ty: fsc_mir::Ty,
+    },
+    MissingFunctionMapping(fsc_mir::FunctionId),
+    MissingLocalAllocation(fsc_mir::LocalId),
+    UnsupportedLocalType {
+        local: fsc_mir::LocalId,
+        ty: fsc_mir::Ty,
+    },
+    UnsupportedType(fsc_mir::Ty),
 }
 
 impl std::fmt::Display for CodegenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::UndeclaredVariable(name) => {
-                write!(f, "undeclared variable `{name}`")
+            Self::FrameTooLarge => f.write_str("function frame exceeds the VM slot limit"),
+            Self::InvalidFieldProjection { ty, field } => {
+                write!(f, "field `{field:?}` is not valid for type `{ty:?}`")
             }
-            Self::AlreadyDeclared(name) => {
-                write!(f, "variable `{name}` already declared in this scope")
+            Self::InvalidIndexProjection { ty } => {
+                write!(f, "index projection is not valid for type `{ty:?}`")
             }
-            Self::FrameTooLarge => {
-                write!(f, "function frame exceeds the VM slot limit")
+            Self::MissingFunctionMapping(function) => {
+                write!(
+                    f,
+                    "no function mapping exists for MIR function `{function:?}`"
+                )
             }
-            Self::UnknownLocal(local) => {
-                write!(f, "no frame allocation exists for local `{local:?}`")
+            Self::MissingLocalAllocation(local) => {
+                write!(f, "no frame allocation exists for MIR local `{local:?}`")
             }
-            Self::DuplicateLocal(local) => {
-                write!(f, "local `{local:?}` is declared more than once")
+            Self::UnsupportedLocalType { local, ty } => {
+                write!(
+                    f,
+                    "MIR local `{local:?}` of type `{ty:?}` has no frame representation"
+                )
             }
-            Self::InvalidLocalType(local) => {
-                write!(f, "local `{local:?}` has no frame storage representation")
-            }
-            Self::Assembler(msg) => {
-                write!(f, "assembler error: {msg}")
+            Self::UnsupportedType(ty) => {
+                write!(f, "type `{ty:?}` has no storage representation")
             }
         }
     }
 }
 
 pub type CodegenResult<T> = Result<T, CodegenError>;
-
-impl From<AssemblerError> for CodegenError {
-    fn from(e: AssemblerError) -> Self {
-        Self::Assembler(e.to_string())
-    }
-}

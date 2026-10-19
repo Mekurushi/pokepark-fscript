@@ -386,9 +386,9 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             })),
         };
         if let Ok(field) = &field {
-            self.results.record_field(expression, field.index);
+            self.results.record_field(expression, field.index());
         }
-        field.map(|field| field.ty.clone())
+        field.map(|field| field.ty().clone())
     }
 
     fn check_unary(
