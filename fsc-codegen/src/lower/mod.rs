@@ -1,10 +1,12 @@
 mod block;
+mod block_mapping;
 mod body;
 mod context;
 mod declarations;
 mod operand;
 mod rvalue;
 mod statement;
+mod terminator;
 
 use crate::CodegenResult;
 use context::LoweringContext;

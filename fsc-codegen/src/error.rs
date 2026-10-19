@@ -13,7 +13,6 @@ pub enum CodegenError {
         length: usize,
     },
     InvalidFunctionMapping(fsc_mir::FunctionId),
-    MissingBlockMapping(fsc_mir::BasicBlockId),
     MissingFunctionMapping(fsc_mir::FunctionId),
     MissingLocalAllocation(fsc_mir::LocalId),
     MissingStaticMapping(fsc_mir::StaticId),
@@ -50,9 +49,6 @@ impl std::fmt::Display for CodegenError {
                     f,
                     "MIR function `{function:?}` is not mapped to a defined FSB function"
                 )
-            }
-            Self::MissingBlockMapping(block) => {
-                write!(f, "no block mapping exists for MIR block `{block:?}`")
             }
             Self::MissingFunctionMapping(function) => {
                 write!(
