@@ -8,6 +8,10 @@ pub enum CodegenError {
     InvalidIndexProjection {
         ty: fsc_mir::Ty,
     },
+    IndexOutOfBounds {
+        index: usize,
+        length: usize,
+    },
     InvalidFunctionMapping(fsc_mir::FunctionId),
     MissingBlockMapping(fsc_mir::BasicBlockId),
     MissingFunctionMapping(fsc_mir::FunctionId),
@@ -37,6 +41,9 @@ impl std::fmt::Display for CodegenError {
             }
             Self::InvalidIndexProjection { ty } => {
                 write!(f, "index projection is not valid for type `{ty:?}`")
+            }
+            Self::IndexOutOfBounds { index, length } => {
+                write!(f, "index `{index}` is out of bounds for length `{length}`")
             }
             Self::InvalidFunctionMapping(function) => {
                 write!(

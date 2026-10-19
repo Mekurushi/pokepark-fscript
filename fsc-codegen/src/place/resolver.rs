@@ -4,7 +4,7 @@ use crate::{
     frame::{FrameLayout, FrameSlot, slot_width},
 };
 use fsb_ir::DataRef;
-use fsc_mir::{Body, Place, PlaceBase, ProjectionElem, Ty, aggregate_fields};
+use fsc_mir::{Body, FieldIdx, Place, PlaceBase, ProjectionElem, Ty, aggregate_fields};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IndexedOffset {
@@ -27,6 +27,99 @@ pub(crate) struct ResolvedPlace {
     pub(crate) ty: Ty,
 }
 
+impl ResolvedPlace {
+    pub(crate) fn project_field(&self, field: FieldIdx) -> CodegenResult<Self> {
+        let fields =
+            aggregate_fields(&self.ty).ok_or_else(|| CodegenError::InvalidFieldProjection {
+                ty: self.ty.clone(),
+                field,
+            })?;
+
+        let mut field_offset = 0_u16;
+        for definition in fields {
+            if definition.index() == field {
+                return Ok(Self {
+                    base: self.base.clone(),
+                    static_offset: self
+                        .static_offset
+                        .checked_add(field_offset)
+                        .ok_or(CodegenError::FrameTooLarge)?,
+                    indexed_offsets: self.indexed_offsets.clone(),
+                    ty: definition.ty().clone(),
+                });
+            }
+
+            field_offset = field_offset
+                .checked_add(
+                    slot_width(definition.ty())
+                        .ok_or_else(|| CodegenError::UnsupportedType(definition.ty().clone()))?,
+                )
+                .ok_or(CodegenError::FrameTooLarge)?;
+        }
+
+        Err(CodegenError::InvalidFieldProjection {
+            ty: self.ty.clone(),
+            field,
+        })
+    }
+
+    pub(crate) fn project_index(&self, index: FrameSlot) -> CodegenResult<Self> {
+        let Ty::Array { element, length } = &self.ty else {
+            return Err(CodegenError::InvalidIndexProjection {
+                ty: self.ty.clone(),
+            });
+        };
+        let stride = slot_width(element)
+            .ok_or_else(|| CodegenError::UnsupportedType((**element).clone()))?;
+
+        let mut indexed_offsets = Vec::with_capacity(self.indexed_offsets.len() + 1);
+        indexed_offsets.extend_from_slice(&self.indexed_offsets);
+        indexed_offsets.push(IndexedOffset {
+            index,
+            stride,
+            length: *length,
+        });
+
+        Ok(Self {
+            base: self.base.clone(),
+            static_offset: self.static_offset,
+            indexed_offsets: indexed_offsets.into_boxed_slice(),
+            ty: (**element).clone(),
+        })
+    }
+
+    pub(crate) fn project_constant_index(&self, index: usize) -> CodegenResult<Self> {
+        let Ty::Array { element, length } = &self.ty else {
+            return Err(CodegenError::InvalidIndexProjection {
+                ty: self.ty.clone(),
+            });
+        };
+        if index >= *length {
+            return Err(CodegenError::IndexOutOfBounds {
+                index,
+                length: *length,
+            });
+        }
+
+        let stride = slot_width(element)
+            .ok_or_else(|| CodegenError::UnsupportedType((**element).clone()))?;
+        let index = u16::try_from(index).map_err(|_| CodegenError::FrameTooLarge)?;
+        let element_offset = index
+            .checked_mul(stride)
+            .ok_or(CodegenError::FrameTooLarge)?;
+
+        Ok(Self {
+            base: self.base.clone(),
+            static_offset: self
+                .static_offset
+                .checked_add(element_offset)
+                .ok_or(CodegenError::FrameTooLarge)?,
+            indexed_offsets: self.indexed_offsets.clone(),
+            ty: (**element).clone(),
+        })
+    }
+}
+
 pub(crate) struct PlaceResolver<'layout, 'mir> {
     frame: &'layout FrameLayout,
     statics: &'layout StaticData,
@@ -47,67 +140,22 @@ impl<'layout, 'mir> PlaceResolver<'layout, 'mir> {
     }
 
     pub(crate) fn resolve(&self, place: &Place) -> CodegenResult<ResolvedPlace> {
-        let (base, mut ty) = self.resolve_base(place.base)?;
-        let mut static_offset = 0_u16;
-        let mut indexed_offsets = Vec::new();
-
-        for projection in &place.projection {
-            match projection {
-                ProjectionElem::Field(field) => {
-                    let fields = aggregate_fields(&ty).ok_or_else(|| {
-                        CodegenError::InvalidFieldProjection {
-                            ty: ty.clone(),
-                            field: *field,
-                        }
-                    })?;
-                    let mut offset = 0_u16;
-                    let mut field_ty = None;
-                    for definition in fields {
-                        if definition.index() == *field {
-                            field_ty = Some(definition.ty().clone());
-                            break;
-                        }
-                        let width = slot_width(definition.ty()).ok_or_else(|| {
-                            CodegenError::UnsupportedType(definition.ty().clone())
-                        })?;
-                        offset = offset
-                            .checked_add(width)
-                            .ok_or(CodegenError::FrameTooLarge)?;
+        place
+            .projection
+            .iter()
+            .try_fold(
+                self.resolve_base(place.base)?,
+                |resolved, projection| match projection {
+                    ProjectionElem::Field(field) => resolved.project_field(*field),
+                    ProjectionElem::Index(index) => {
+                        resolved.project_index(self.frame.base(*index)?)
                     }
-                    let Some(field_ty) = field_ty else {
-                        return Err(CodegenError::InvalidFieldProjection { ty, field: *field });
-                    };
-                    static_offset = static_offset
-                        .checked_add(offset)
-                        .ok_or(CodegenError::FrameTooLarge)?;
-                    ty = field_ty;
-                }
-                ProjectionElem::Index(index) => {
-                    let Ty::Array { element, length } = &ty else {
-                        return Err(CodegenError::InvalidIndexProjection { ty });
-                    };
-                    let stride = slot_width(element)
-                        .ok_or_else(|| CodegenError::UnsupportedType((**element).clone()))?;
-                    indexed_offsets.push(IndexedOffset {
-                        index: self.frame.base(*index)?,
-                        stride,
-                        length: *length,
-                    });
-                    ty = (**element).clone();
-                }
-            }
-        }
-
-        Ok(ResolvedPlace {
-            base,
-            static_offset,
-            indexed_offsets: indexed_offsets.into_boxed_slice(),
-            ty,
-        })
+                },
+            )
     }
 
-    fn resolve_base(&self, base: PlaceBase) -> CodegenResult<(StorageBase, Ty)> {
-        match base {
+    fn resolve_base(&self, base: PlaceBase) -> CodegenResult<ResolvedPlace> {
+        let (base, ty) = match base {
             PlaceBase::Local(local) => {
                 let base = StorageBase::Frame(self.frame.base(local)?);
                 let ty = self
@@ -117,15 +165,22 @@ impl<'layout, 'mir> PlaceResolver<'layout, 'mir> {
                     .ok_or(CodegenError::MissingLocalAllocation(local))?
                     .ty
                     .clone();
-                Ok((base, ty))
+                (base, ty)
             }
             PlaceBase::Static(static_id) => {
                 let declaration = self.statics.declaration(static_id)?;
-                Ok((
+                (
                     StorageBase::Data(declaration.base.clone()),
                     declaration.ty.clone(),
-                ))
+                )
             }
-        }
+        };
+
+        Ok(ResolvedPlace {
+            base,
+            static_offset: 0,
+            indexed_offsets: Box::default(),
+            ty,
+        })
     }
 }
