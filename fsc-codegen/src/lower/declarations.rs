@@ -1,7 +1,7 @@
 use crate::data::StaticData;
 use crate::{CodegenError, CodegenResult};
 use cranelift_entity::SecondaryMap;
-use fsb_ir::{ExternalFunction, FunctionRef, Program};
+use fsb_ir::{ExternalFunction, FunctionId as FsbFunctionId, FunctionRef, Program};
 use fsc_mir::{FunctionId, FunctionKind, Linkage, Script};
 
 pub(super) struct DeclaredProgram {
@@ -44,6 +44,13 @@ impl DeclaredProgram {
 
     pub(super) fn static_data(&self, source: fsc_mir::StaticId) -> CodegenResult<fsb_ir::DataRef> {
         self.statics.reference(source)
+    }
+
+    pub(super) fn defined_function(&self, source: FunctionId) -> CodegenResult<FsbFunctionId> {
+        match self.function(source)? {
+            FunctionRef::Internal(function) => Ok(function),
+            FunctionRef::External(_) => Err(CodegenError::InvalidFunctionMapping(source)),
+        }
     }
 }
 

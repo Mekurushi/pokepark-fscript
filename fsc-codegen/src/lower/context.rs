@@ -1,4 +1,4 @@
-use super::declarations::DeclaredProgram;
+use super::{body::BodyLowerer, declarations::DeclaredProgram};
 use crate::{CodegenResult, frame::FrameLayout};
 use fsc_mir::{FunctionKind, Script};
 
@@ -15,15 +15,21 @@ impl<'mir> LoweringContext<'mir> {
         })
     }
 
-    pub(super) fn lower_script(self) -> CodegenResult<fsb_ir::Program> {
+    pub(super) fn lower_script(mut self) -> CodegenResult<fsb_ir::Program> {
         for static_id in self.mir.statics.keys() {
             let _ = self.declarations.static_data(static_id)?;
         }
         for function in self.mir.functions.keys() {
-            let _ = self.declarations.function(function)?;
             if let FunctionKind::Defined { body, .. } = &self.mir.functions[function].kind {
-                let _frame = FrameLayout::plan(body)?;
-                todo!("function lowering")
+                let target = self.declarations.defined_function(function)?;
+                let frame = FrameLayout::plan(body)?;
+                BodyLowerer::new(
+                    body,
+                    frame,
+                    &self.declarations.statics,
+                    self.declarations.program.function_mut(target),
+                )
+                .lower()?;
             }
         }
 

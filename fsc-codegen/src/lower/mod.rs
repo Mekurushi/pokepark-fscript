@@ -1,5 +1,9 @@
+mod block;
+mod body;
 mod context;
 mod declarations;
+mod operand;
+mod statement;
 
 use crate::CodegenResult;
 use context::LoweringContext;

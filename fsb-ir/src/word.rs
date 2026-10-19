@@ -19,3 +19,15 @@ impl Word {
         self.0
     }
 }
+
+impl From<u32> for Word {
+    fn from(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<u16> for Word {
+    fn from(value: u16) -> Self {
+        Self(u32::from(value))
+    }
+}

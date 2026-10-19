@@ -8,6 +8,8 @@ pub enum CodegenError {
     InvalidIndexProjection {
         ty: fsc_mir::Ty,
     },
+    InvalidFunctionMapping(fsc_mir::FunctionId),
+    MissingBlockMapping(fsc_mir::BasicBlockId),
     MissingFunctionMapping(fsc_mir::FunctionId),
     MissingLocalAllocation(fsc_mir::LocalId),
     MissingStaticMapping(fsc_mir::StaticId),
@@ -35,6 +37,15 @@ impl std::fmt::Display for CodegenError {
             }
             Self::InvalidIndexProjection { ty } => {
                 write!(f, "index projection is not valid for type `{ty:?}`")
+            }
+            Self::InvalidFunctionMapping(function) => {
+                write!(
+                    f,
+                    "MIR function `{function:?}` is not mapped to a defined FSB function"
+                )
+            }
+            Self::MissingBlockMapping(block) => {
+                write!(f, "no block mapping exists for MIR block `{block:?}`")
             }
             Self::MissingFunctionMapping(function) => {
                 write!(
