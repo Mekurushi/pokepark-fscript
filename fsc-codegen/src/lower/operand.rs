@@ -4,13 +4,13 @@ use crate::{
     place::resolver::{IndexedOffset, ResolvedPlace, StorageBase},
 };
 use fsb_ir::{AddressingMode, Instruction, IntegerOperation, MemoryWidth, Word};
-use fsc_mir::{ConstValue, Constant, Operand, Place, Ty};
+use fsc_mir::{ConstValue, Operand, Place, Ty};
 
 impl BlockLowerer<'_, '_, '_> {
     pub(super) fn lower_operand(&mut self, operand: &Operand) -> CodegenResult<()> {
         match operand {
             Operand::Place(place) => self.lower_place(place)?,
-            Operand::Constant(constant) => self.lower_constant(constant),
+            Operand::Constant(constant) => self.lower_constant_value(&constant.value),
         }
         Ok(())
     }
@@ -150,8 +150,8 @@ impl BlockLowerer<'_, '_, '_> {
         });
     }
 
-    pub(super) fn lower_constant(&mut self, constant: &Constant) {
-        let instruction = match &constant.value {
+    pub(super) fn lower_constant_value(&mut self, value: &ConstValue) {
+        let instruction = match value {
             ConstValue::Int(value) => Instruction::PushConstant(Word::from_i32(*value)),
             ConstValue::Float(value) => Instruction::PushConstant(Word::from_f32(*value)),
             ConstValue::Bool(value) => Instruction::PushConstant(Word::from_i32(i32::from(*value))),

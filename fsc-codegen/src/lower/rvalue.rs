@@ -96,17 +96,54 @@ impl BlockLowerer<'_, '_, '_> {
         constant: &Constant,
         target: &ResolvedPlace,
     ) -> CodegenResult<()> {
-        match constant.value {
-            ConstValue::Int(_)
-            | ConstValue::Float(_)
-            | ConstValue::Bool(_)
-            | ConstValue::String(_) => {
-                self.lower_constant(constant);
+        self.lower_constant_value_into(&constant.value, &constant.ty, target)
+    }
+
+    fn lower_constant_value_into(
+        &mut self,
+        value: &ConstValue,
+        ty: &Ty,
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        match (value, ty) {
+            (ConstValue::Int(_), Ty::Int)
+            | (ConstValue::Float(_), Ty::Float)
+            | (ConstValue::Bool(_), Ty::Bool)
+            | (ConstValue::String(_), Ty::Str) => {
+                self.lower_constant_value(value);
                 self.lower_store_word(target)
             }
-            ConstValue::Array(_) | ConstValue::Aggregate(_) => {
-                todo!("aggregate constant lowering")
+            (ConstValue::Array(values), Ty::Array { element, length }) => {
+                debug_assert_eq!(
+                    values.len(),
+                    *length,
+                    "MIR array constant must contain every element"
+                );
+
+                for (index, value) in values.iter().enumerate() {
+                    let target = target.project_constant_index(index)?;
+                    self.lower_constant_value_into(value, element, &target)?;
+                }
+                Ok(())
             }
+            (ConstValue::Aggregate(values), ty) => {
+                let fields = aggregate_fields(ty)
+                    .ok_or_else(|| CodegenError::UnsupportedType(ty.clone()))?;
+                debug_assert_eq!(
+                    values.len(),
+                    fields.len(),
+                    "MIR aggregate constant must contain every field"
+                );
+
+                // invariant: expects fields and values to be equally ordered
+                // TODO: better way to structure layout
+                for (field, value) in fields.iter().zip(values) {
+                    let target = target.project_field(field.index())?;
+                    self.lower_constant_value_into(value, field.ty(), &target)?;
+                }
+                Ok(())
+            }
+            _ => Err(CodegenError::UnsupportedType(ty.clone())),
         }
     }
 }
