@@ -3,6 +3,7 @@ mod body;
 mod context;
 mod declarations;
 mod operand;
+mod rvalue;
 mod statement;
 
 use crate::CodegenResult;

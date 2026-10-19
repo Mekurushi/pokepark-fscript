@@ -1,7 +1,7 @@
 use super::block::BlockLowerer;
 use crate::{
-    place::resolver::{IndexedOffset, ResolvedPlace, StorageBase}, CodegenError,
-    CodegenResult,
+    CodegenError, CodegenResult,
+    place::resolver::{IndexedOffset, ResolvedPlace, StorageBase},
 };
 use fsb_ir::{AddressingMode, Instruction, IntegerOperation, MemoryWidth, Word};
 use fsc_mir::{ConstValue, Constant, Operand, Place, Ty};

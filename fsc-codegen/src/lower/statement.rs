@@ -7,7 +7,7 @@ impl BlockLowerer<'_, '_, '_> {
         match &statement.kind {
             StatementKind::Assign { target, value } => {
                 let target = self.places.resolve(target)?;
-                todo!("Rvalue lowering")
+                self.lower_rvalue_into(value, &target)
             }
             StatementKind::Call { .. }
             | StatementKind::RawSyscall { .. }
