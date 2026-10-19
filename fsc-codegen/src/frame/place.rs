@@ -1,11 +1,12 @@
-use super::layout::{slot_width, FrameLayout, FrameSlot};
+use super::layout::{FrameLayout, FrameSlot, slot_width};
 use crate::{CodegenError, CodegenResult};
-use fsc_mir::{aggregate_fields, LocalId, Place, ProjectionElem, Ty};
+use fsc_mir::{LocalId, Place, ProjectionElem, Ty, aggregate_fields};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IndexedOffset {
     pub(crate) index: LocalId,
     pub(crate) stride: u16,
+    pub(crate) length: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +65,7 @@ impl FrameLayout {
                     ty = field_ty;
                 }
                 ProjectionElem::Index(index) => {
-                    let Ty::Array { element, .. } = &ty else {
+                    let Ty::Array { element, length } = &ty else {
                         return Err(CodegenError::InvalidIndexProjection { ty });
                     };
                     let stride = slot_width(element)
@@ -72,6 +73,7 @@ impl FrameLayout {
                     indexed_offsets.push(IndexedOffset {
                         index: *index,
                         stride,
+                        length: *length,
                     });
                     ty = (**element).clone();
 
