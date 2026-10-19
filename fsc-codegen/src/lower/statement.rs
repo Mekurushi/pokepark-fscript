@@ -1,6 +1,7 @@
-use super::block::BlockLowerer;
+use super::{block::BlockLowerer, operand::ScalarKind};
 use crate::CodegenResult;
-use fsc_mir::{Statement, StatementKind};
+use fsb_ir::Instruction;
+use fsc_mir::{Operand, Statement, StatementKind};
 
 impl BlockLowerer<'_, '_, '_> {
     pub(super) fn lower_statement(&mut self, statement: &Statement) -> CodegenResult<()> {
@@ -9,9 +10,21 @@ impl BlockLowerer<'_, '_, '_> {
                 let target = self.places.resolve(target)?;
                 self.lower_rvalue_into(value, &target)
             }
-            StatementKind::Call { .. }
-            | StatementKind::RawSyscall { .. }
-            | StatementKind::Pause { .. } => todo!("effectful statement lowering"),
+            StatementKind::Pause { duration } => self.lower_pause(duration),
+            StatementKind::Call { .. } | StatementKind::RawSyscall { .. } => {
+                todo!("call statement lowering")
+            }
         }
+    }
+
+    fn lower_pause(&mut self, duration: &Operand) -> CodegenResult<()> {
+        let duration = self.lower_scalar_operand(duration)?;
+        debug_assert_eq!(
+            duration,
+            ScalarKind::Integer,
+            "MIR pause duration must have integer type"
+        );
+        self.output.push_instruction(Instruction::DelayFromStack);
+        Ok(())
     }
 }
