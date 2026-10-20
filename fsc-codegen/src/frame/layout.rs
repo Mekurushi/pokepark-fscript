@@ -1,4 +1,4 @@
-use crate::{CodegenError, CodegenResult};
+use crate::{CodegenError, CodegenResult, abi::PassMode};
 use cranelift_entity::{EntityRef, SecondaryMap};
 use fsc_mir::{Body, LocalId, RETURN_PLACE, Ty, aggregate_fields};
 
@@ -19,8 +19,15 @@ impl FrameSlot {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct StackAllocation {
-    base: FrameSlot,
+pub(crate) enum AllocationKind {
+    Inline,
+    Indirect,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct FrameAllocation {
+    pub(crate) base: FrameSlot,
+    pub(crate) kind: AllocationKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,27 +55,37 @@ impl SlotCount {
 
 #[derive(Debug)]
 pub(crate) struct FrameLayout {
-    allocations: SecondaryMap<LocalId, Option<StackAllocation>>,
+    allocations: SecondaryMap<LocalId, Option<FrameAllocation>>,
     parameter_slots: SlotCount,
     local_slots: SlotCount,
 }
 
 impl FrameLayout {
-    pub(crate) fn plan(body: &Body) -> CodegenResult<Self> {
+    pub(crate) fn plan(body: &Body, parameter_modes: &[PassMode]) -> CodegenResult<Self> {
+        debug_assert_eq!(body.argument_count, parameter_modes.len());
         let mut allocations = SecondaryMap::new();
         let mut parameter_slots = SlotCount::ZERO;
         let mut local_slots = SlotCount::ZERO;
 
         for (local, declaration) in &body.locals {
-            let width =
-                slot_width(&declaration.ty).ok_or_else(|| CodegenError::UnsupportedLocalType {
-                    local,
-                    ty: declaration.ty.clone(),
-                })?;
-
             if local == RETURN_PLACE && declaration.ty == Ty::Void {
                 continue;
             }
+
+            let parameter = is_parameter(local, body.argument_count);
+            let (width, kind) =
+                if parameter && parameter_modes[local.index() - 1] == PassMode::Indirect {
+                    (1, AllocationKind::Indirect)
+                } else {
+                    let width = slot_width(&declaration.ty).ok_or_else(|| {
+                        CodegenError::UnsupportedLocalType {
+                            local,
+                            ty: declaration.ty.clone(),
+                        }
+                    })?;
+                    (width, AllocationKind::Inline)
+                };
+
             if width == 0 {
                 return Err(CodegenError::UnsupportedLocalType {
                     local,
@@ -76,7 +93,7 @@ impl FrameLayout {
                 });
             }
 
-            let base = if is_parameter(local, body.argument_count) {
+            let base = if parameter {
                 let base = FrameSlot(parameter_slots.as_offset());
                 parameter_slots = parameter_slots.checked_add(width)?;
                 base
@@ -84,7 +101,7 @@ impl FrameLayout {
                 local_slots = local_slots.checked_add(width)?;
                 FrameSlot(-local_slots.as_offset())
             };
-            allocations.insert(local, Some(StackAllocation { base }));
+            allocations.insert(local, Some(FrameAllocation { base, kind }));
         }
 
         let _ = parameter_slots.checked_add(local_slots.get())?;
@@ -108,10 +125,13 @@ impl FrameLayout {
     }
 
     pub(crate) fn base(&self, local: LocalId) -> CodegenResult<FrameSlot> {
+        self.allocation(local).map(|allocation| allocation.base)
+    }
+
+    pub(crate) fn allocation(&self, local: LocalId) -> CodegenResult<FrameAllocation> {
         self.allocations
             .get(local)
             .and_then(|allocation| *allocation)
-            .map(|allocation| allocation.base)
             .ok_or(CodegenError::MissingLocalAllocation(local))
     }
 }

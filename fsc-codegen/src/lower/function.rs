@@ -1,4 +1,7 @@
-use super::{block::BlockLowerer, block_mapping::BlockMapping, context::CodegenContext};
+use super::{
+    block::BlockLowerer, block_mapping::BlockMapping, context::CodegenContext,
+    function_mapping::FunctionDeclaration,
+};
 use crate::{
     CodegenResult, frame::FrameLayout, place::resolver::PlaceResolver,
     place::resolver::ResolvedPlace,
@@ -60,6 +63,13 @@ impl<'function> FunctionLowerer<'function> {
 
     pub(super) fn function(&self, source: FunctionId) -> CodegenResult<fsb_ir::FunctionRef> {
         self.codegen.function(source)
+    }
+
+    pub(super) fn function_declaration(
+        &self,
+        source: FunctionId,
+    ) -> CodegenResult<&FunctionDeclaration> {
+        self.codegen.function_declaration(source)
     }
 
     pub(super) fn return_type(&self) -> &Ty {

@@ -1,7 +1,7 @@
 use crate::{
     CodegenError, CodegenResult,
     data::StaticData,
-    frame::{FrameLayout, FrameSlot, slot_width},
+    frame::{AllocationKind, FrameLayout, FrameSlot, slot_width},
 };
 use fsb_ir::DataRef;
 use fsc_mir::{Body, FieldIdx, Place, PlaceBase, ProjectionElem, Ty, aggregate_fields};
@@ -16,6 +16,7 @@ pub(crate) struct IndexedOffset {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum StorageBase {
     Frame(FrameSlot),
+    FramePointer(FrameSlot),
     Data(DataRef),
 }
 
@@ -157,7 +158,11 @@ impl<'layout, 'mir> PlaceResolver<'layout, 'mir> {
     fn resolve_base(&self, base: PlaceBase) -> CodegenResult<ResolvedPlace> {
         let (base, ty) = match base {
             PlaceBase::Local(local) => {
-                let base = StorageBase::Frame(self.frame.base(local)?);
+                let allocation = self.frame.allocation(local)?;
+                let base = match allocation.kind {
+                    AllocationKind::Inline => StorageBase::Frame(allocation.base),
+                    AllocationKind::Indirect => StorageBase::FramePointer(allocation.base),
+                };
                 let ty = self
                     .body
                     .locals

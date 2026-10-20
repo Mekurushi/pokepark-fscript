@@ -6,6 +6,8 @@ use crate::{
 use fsb_ir::{AddressingMode, Instruction, IntegerOperation, MemoryWidth, Word};
 use fsc_mir::{ConstValue, Operand, Ty};
 
+const WORD_BYTES: u16 = 4;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ScalarKind {
     Integer,
@@ -34,6 +36,10 @@ impl BlockLowerer<'_, '_> {
     pub(super) fn lower_load_word(&mut self, place: &ResolvedPlace) -> CodegenResult<()> {
         match &place.base {
             StorageBase::Frame(base) => self.lower_load_frame_word(*base, place),
+            StorageBase::FramePointer(base) => {
+                self.lower_load_indirect_frame_word(*base, place);
+                Ok(())
+            }
             StorageBase::Data(base) => {
                 self.lower_load_data_word(base, place);
                 Ok(())
@@ -63,6 +69,20 @@ impl BlockLowerer<'_, '_> {
             addressing,
         });
         Ok(())
+    }
+
+    fn lower_load_indirect_frame_word(
+        &mut self,
+        base: crate::frame::FrameSlot,
+        place: &ResolvedPlace,
+    ) {
+        self.output
+            .push_instruction(Instruction::LoadFrameSlot(base.offset()));
+        let addressing = self.lower_address_offset(place.static_offset, &place.indexed_offsets);
+        self.output.push_instruction(Instruction::Load {
+            width: MemoryWidth::Word,
+            addressing,
+        });
     }
 
     fn lower_load_data_word(&mut self, base: &fsb_ir::DataRef, place: &ResolvedPlace) {
@@ -111,9 +131,60 @@ impl BlockLowerer<'_, '_> {
         }
     }
 
+    pub(super) fn lower_place_address(&mut self, place: &ResolvedPlace) {
+        match &place.base {
+            StorageBase::Frame(base) => self
+                .output
+                .push_instruction(Instruction::LoadFrameSlotAddress(base.offset())),
+            StorageBase::FramePointer(base) => self
+                .output
+                .push_instruction(Instruction::LoadFrameSlot(base.offset())),
+            StorageBase::Data(base) => self
+                .output
+                .push_instruction(Instruction::LoadAddress(base.clone())),
+        }
+
+        let mut has_offset = false;
+        if place.static_offset != 0 {
+            self.output
+                .push_instruction(Instruction::PushConstant(Word::from(place.static_offset)));
+            has_offset = true;
+        }
+
+        for offset in &place.indexed_offsets {
+            self.output
+                .push_instruction(Instruction::LoadFrameSlot(offset.index.offset()));
+
+            if offset.stride != 1 {
+                self.output
+                    .push_instruction(Instruction::PushConstant(Word::from(offset.stride)));
+                self.output
+                    .push_instruction(Instruction::Integer(IntegerOperation::Multiply));
+            }
+            if has_offset {
+                self.output
+                    .push_instruction(Instruction::Integer(IntegerOperation::Add));
+            }
+            has_offset = true;
+        }
+
+        if has_offset {
+            self.output
+                .push_instruction(Instruction::PushConstant(Word::from(WORD_BYTES)));
+            self.output
+                .push_instruction(Instruction::Integer(IntegerOperation::Multiply));
+            self.output
+                .push_instruction(Instruction::Integer(IntegerOperation::Add));
+        }
+    }
+
     pub(super) fn lower_store_word(&mut self, place: &ResolvedPlace) -> CodegenResult<()> {
         match &place.base {
             StorageBase::Frame(base) => self.lower_store_frame_word(*base, place),
+            StorageBase::FramePointer(base) => {
+                self.lower_store_indirect_frame_word(*base, place);
+                Ok(())
+            }
             StorageBase::Data(base) => {
                 self.lower_store_data_word(base, place);
                 Ok(())
@@ -144,6 +215,21 @@ impl BlockLowerer<'_, '_> {
             operation: fsb_ir::StoreOperation::Assign,
         });
         Ok(())
+    }
+
+    fn lower_store_indirect_frame_word(
+        &mut self,
+        base: crate::frame::FrameSlot,
+        place: &ResolvedPlace,
+    ) {
+        self.output
+            .push_instruction(Instruction::LoadFrameSlot(base.offset()));
+        let addressing = self.lower_address_offset(place.static_offset, &place.indexed_offsets);
+        self.output.push_instruction(Instruction::Store {
+            width: MemoryWidth::Word,
+            addressing,
+            operation: fsb_ir::StoreOperation::Assign,
+        });
     }
 
     fn lower_store_data_word(&mut self, base: &fsb_ir::DataRef, place: &ResolvedPlace) {

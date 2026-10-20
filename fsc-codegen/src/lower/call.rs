@@ -1,5 +1,5 @@
 use super::block::BlockLowerer;
-use crate::CodegenResult;
+use crate::{CodegenError, CodegenResult, abi::PassMode};
 use fsb_ir::Instruction;
 use fsc_mir::{FunctionId, Operand, Place};
 
@@ -10,9 +10,26 @@ impl BlockLowerer<'_, '_> {
         callee: FunctionId,
         arguments: &[Operand],
     ) -> CodegenResult<()> {
-        //
-        for argument in arguments.iter().rev() {
-            self.lower_scalar_operand(argument)?;
+        for (index, argument) in arguments.iter().enumerate().rev() {
+            let mode = self
+                .function
+                .function_declaration(callee)?
+                .parameter_modes()[index];
+
+            match mode {
+                PassMode::Direct => {
+                    self.lower_scalar_operand(argument)?;
+                }
+                PassMode::Indirect => match argument {
+                    Operand::Place(place) => {
+                        let place = self.function.resolve_place(place)?;
+                        self.lower_place_address(&place);
+                    }
+                    Operand::Constant(constant) => {
+                        return Err(CodegenError::UnsupportedType(constant.ty.clone()));
+                    }
+                },
+            }
         }
 
         let callee = self.function.function(callee)?;

@@ -1,6 +1,7 @@
 use super::{
-    declarations::DeclaredProgram, function::lower as lower_function,
-    function_mapping::FunctionMapping,
+    declarations::DeclaredProgram,
+    function::lower as lower_function,
+    function_mapping::{FunctionDeclaration, FunctionMapping},
 };
 use crate::{CodegenResult, data::StaticData, frame::FrameLayout};
 use fsc_mir::{FunctionKind, Script};
@@ -28,6 +29,13 @@ impl<'declarations> CodegenContext<'declarations> {
     ) -> CodegenResult<fsb_ir::FunctionRef> {
         self.functions.function(source)
     }
+
+    pub(super) fn function_declaration(
+        &self,
+        source: fsc_mir::FunctionId,
+    ) -> CodegenResult<&FunctionDeclaration> {
+        self.functions.declaration(source)
+    }
 }
 
 pub(super) struct ScriptLowerer<'mir> {
@@ -52,7 +60,8 @@ impl<'mir> ScriptLowerer<'mir> {
         for function in self.mir.functions.keys() {
             if let FunctionKind::Defined { body, .. } = &self.mir.functions[function].kind {
                 let target = self.declarations.functions.defined_function(function)?;
-                let frame = FrameLayout::plan(body)?;
+                let declaration = self.declarations.functions.declaration(function)?;
+                let frame = FrameLayout::plan(body, declaration.parameter_modes())?;
                 let output = self.declarations.program.function_mut(target);
                 lower_function(body, frame, &codegen, output)?;
             }
