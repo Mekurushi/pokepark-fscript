@@ -185,8 +185,25 @@ impl BodyBuilder<'_> {
     fn lower_arguments(&mut self, expressions: &[thir::ExprId]) -> Box<[Operand]> {
         expressions
             .iter()
-            .map(|expression| self.lower_operand(*expression))
+            .map(|expression| self.lower_argument(*expression))
             .collect()
+    }
+
+    fn lower_argument(&mut self, expression: thir::ExprId) -> Operand {
+        if matches!(
+            self.thir.expressions[expression].kind,
+            thir::ExprKind::Constant(_)
+        ) {
+            return self.lower_operand(expression);
+        }
+
+        let (ty, source) = {
+            let expression = &self.thir.expressions[expression];
+            (expression.ty.clone(), expression.source)
+        };
+        let destination = Place::from_local(self.allocate_temporary(&ty, source));
+        self.lower_expression_into(expression, destination.clone());
+        Operand::Place(destination)
     }
 
     pub(super) fn lower_place(&self, expression: thir::ExprId) -> Place {
