@@ -1,6 +1,5 @@
 mod block;
 mod block_mapping;
-mod body;
 mod call;
 mod context;
 mod declarations;
@@ -12,8 +11,8 @@ mod statement;
 mod terminator;
 
 use crate::CodegenResult;
-use context::LoweringContext;
+use context::ScriptLowerer;
 
 pub(super) fn lower(script: &fsc_mir::Script) -> CodegenResult<fsb_ir::Program> {
-    LoweringContext::new(script)?.lower_script()
+    ScriptLowerer::new(script)?.lower_script()
 }
