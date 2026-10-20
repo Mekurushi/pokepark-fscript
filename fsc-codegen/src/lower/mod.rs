@@ -1,9 +1,11 @@
 mod block;
 mod block_mapping;
 mod body;
+mod call;
 mod context;
 mod declarations;
 mod function;
+mod function_mapping;
 mod operand;
 mod rvalue;
 mod statement;

@@ -1,4 +1,7 @@
-use super::{block::BlockLowerer, block_mapping::BlockMapping, function::FunctionLoweringContext};
+use super::{
+    block::BlockLowerer, block_mapping::BlockMapping, function::FunctionLoweringContext,
+    function_mapping::FunctionMapping,
+};
 use crate::{CodegenResult, data::StaticData, frame::FrameLayout};
 use fsc_mir::{Body, START_BLOCK};
 
@@ -6,6 +9,7 @@ pub(super) struct BodyLowerer<'layout, 'mir, 'output> {
     body: &'mir Body,
     frame: FrameLayout,
     statics: &'layout StaticData,
+    functions: &'layout FunctionMapping,
     output: &'output mut fsb_ir::Function,
     blocks: BlockMapping,
 }
@@ -15,6 +19,7 @@ impl<'layout, 'mir, 'output> BodyLowerer<'layout, 'mir, 'output> {
         body: &'mir Body,
         frame: FrameLayout,
         statics: &'layout StaticData,
+        functions: &'layout FunctionMapping,
         output: &'output mut fsb_ir::Function,
     ) -> Self {
         let blocks = BlockMapping::allocate(body, output);
@@ -23,14 +28,20 @@ impl<'layout, 'mir, 'output> BodyLowerer<'layout, 'mir, 'output> {
             body,
             frame,
             statics,
+            functions,
             output,
             blocks,
         }
     }
 
     pub(super) fn lower(self) -> CodegenResult<()> {
-        let function =
-            FunctionLoweringContext::new(self.body, &self.frame, self.statics, &self.blocks);
+        let function = FunctionLoweringContext::new(
+            self.body,
+            &self.frame,
+            self.statics,
+            self.functions,
+            &self.blocks,
+        );
 
         for (source, block) in &self.body.blocks {
             let target = function.block(source);

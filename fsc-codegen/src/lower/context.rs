@@ -21,12 +21,13 @@ impl<'mir> LoweringContext<'mir> {
         }
         for function in self.mir.functions.keys() {
             if let FunctionKind::Defined { body, .. } = &self.mir.functions[function].kind {
-                let target = self.declarations.defined_function(function)?;
+                let target = self.declarations.functions.defined_function(function)?;
                 let frame = FrameLayout::plan(body)?;
                 BodyLowerer::new(
                     body,
                     frame,
                     &self.declarations.statics,
+                    &self.declarations.functions,
                     self.declarations.program.function_mut(target),
                 )
                 .lower()?;

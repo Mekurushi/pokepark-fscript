@@ -11,9 +11,12 @@ impl BlockLowerer<'_, '_> {
                 self.lower_rvalue_into(value, &target)
             }
             StatementKind::Pause { duration } => self.lower_pause(duration),
-            StatementKind::Call { .. } | StatementKind::RawSyscall { .. } => {
-                todo!("call statement lowering")
-            }
+            StatementKind::Call {
+                destination,
+                callee,
+                arguments,
+            } => self.lower_call(destination.as_ref(), *callee, arguments),
+            StatementKind::RawSyscall { .. } => todo!("raw syscall statement lowering"),
         }
     }
 
