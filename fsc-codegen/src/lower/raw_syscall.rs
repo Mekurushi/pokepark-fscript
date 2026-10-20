@@ -1,5 +1,5 @@
 use super::block::BlockLowerer;
-use crate::{abi::pass_mode, abi::PassMode, CodegenError, CodegenResult};
+use crate::{CodegenError, CodegenResult, abi::PassMode, abi::pass_mode};
 use fsb_ir::Instruction;
 use fsc_mir::{Operand, Place};
 

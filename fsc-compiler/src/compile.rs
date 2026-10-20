@@ -2,7 +2,7 @@ use crate::CheckMode;
 use crate::ConfigRequirement;
 use crate::ConfigValues;
 use crate::diagnostic::CompileFailure;
-use fsc_diagnostics::Diagnostic;
+use fsc_diagnostics::{Diagnostic, Stage};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CompileRequest<'src> {
@@ -81,8 +81,18 @@ pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFa
     let script = parse(request.source)?;
     let analysis = fsc_sema::analyze(&script, request.config_values)
         .map_err(|diagnostics| CompileFailure::from_diagnostics(diagnostics.entries().to_vec()))?;
-    let _mir = fsc_mir::lower(&analysis.thir);
-    todo!("further support")
+    let mir = fsc_mir::lower(&analysis.thir);
+    let program = fsc_codegen::lower(&mir).map_err(codegen_failure)?;
+    let assembly = fsb_assembler::assemble_program(&program).map_err(assembly_failure)?;
+    let binary = assembly
+        .into_binary(request.script_name.to_owned())
+        .map_err(assembly_failure)?;
+    let bytes = binary.serialize().map_err(assembly_failure)?;
+
+    Ok(CompileArtifact {
+        bytes,
+        diagnostics: analysis.diagnostics.entries().to_vec(),
+    })
 }
 
 pub fn check(source: &str, mode: CheckMode<'_>) -> CheckOutput {
@@ -101,4 +111,12 @@ pub fn required_configs(source: &str) -> Result<Vec<ConfigRequirement>, CompileF
 fn parse(source: &str) -> Result<fsc_parse::ast::Script, CompileFailure> {
     fsc_parse::parse(source)
         .map_err(|error| CompileFailure::from_diagnostics(error.into_diagnostics()))
+}
+
+fn codegen_failure(error: impl std::fmt::Display) -> CompileFailure {
+    CompileFailure::from_diagnostic(Diagnostic::error(Stage::Codegen, error.to_string()))
+}
+
+fn assembly_failure(error: impl std::fmt::Display) -> CompileFailure {
+    CompileFailure::from_diagnostic(Diagnostic::error(Stage::Assembly, error.to_string()))
 }

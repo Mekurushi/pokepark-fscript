@@ -277,6 +277,8 @@ dependencies = [
 name = "fsc-compiler"
 version = "0.1.0"
 dependencies = [
+ "fsb-assembler",
+ "fsc-codegen",
  "fsc-diagnostics",
  "fsc-mir",
  "fsc-parse",
