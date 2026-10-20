@@ -16,7 +16,12 @@ impl BlockLowerer<'_, '_> {
                 callee,
                 arguments,
             } => self.lower_call(destination.as_ref(), *callee, arguments),
-            StatementKind::RawSyscall { .. } => todo!("raw syscall statement lowering"),
+            StatementKind::RawSyscall {
+                destination,
+                page,
+                function,
+                arguments,
+            } => self.lower_raw_syscall(destination.as_ref(), *page, *function, arguments),
         }
     }
 

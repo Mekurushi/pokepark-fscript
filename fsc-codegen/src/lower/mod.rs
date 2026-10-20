@@ -6,6 +6,7 @@ mod declarations;
 mod function;
 mod function_mapping;
 mod operand;
+mod raw_syscall;
 mod rvalue;
 mod statement;
 mod terminator;
