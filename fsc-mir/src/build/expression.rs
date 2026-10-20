@@ -1,7 +1,7 @@
 use super::{body::BodyBuilder, context::lower_source};
 use crate::{
-    BinaryOp, ConstValue, Constant, FieldOperand, Operand, Place, ProjectionElem, RETURN_PLACE,
-    Rvalue, Statement, StatementKind, UnaryOp,
+    BinaryOp, ConstValue, Constant, FieldOperand, Operand, Place, ProjectionElem, Rvalue,
+    Statement, StatementKind, UnaryOp,
 };
 use fsc_sema::{thir, types::Ty};
 
@@ -199,10 +199,6 @@ impl BodyBuilder<'_> {
 
     pub(super) fn local_place(&self, local: thir::LocalId) -> Place {
         Place::from_local(self.mapped_local(local))
-    }
-
-    pub(super) fn return_place() -> Place {
-        Place::from_local(RETURN_PLACE)
     }
 
     fn lower_field_value(&mut self, base: thir::ExprId, field: fsc_sema::types::FieldIdx) -> Place {

@@ -43,8 +43,12 @@ pub(super) fn type_allowed(ty: &Ty, context: TypeContext) -> bool {
         // TODO: add vec3 constants with proper end-to-end support (aggregates etc.)
         TypeContext::Constant => *ty != Ty::Void && *ty != Ty::Vec3,
         TypeContext::Config => matches!(ty, Ty::Int | Ty::Float | Ty::Bool | Ty::Str),
-        TypeContext::Return => true,
+        TypeContext::Return => supports_return(ty),
     }
+}
+
+pub(super) fn supports_return(ty: &Ty) -> bool {
+    matches!(ty, Ty::Void | Ty::Int | Ty::Float | Ty::Bool | Ty::Str)
 }
 
 pub(super) fn supports_arithmetic(ty: &Ty) -> bool {

@@ -29,7 +29,7 @@ impl BodyBuilder<'_> {
                     if self.thir.expressions[*value].ty == fsc_sema::types::Ty::Void {
                         self.lower_expression_statement(*value);
                     } else {
-                        self.lower_expression_into(*value, Self::return_place());
+                        self.lower_expression_into(*value, Place::return_place());
                     }
                 }
                 self.cfg.terminate(Terminator {

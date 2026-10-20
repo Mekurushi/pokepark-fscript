@@ -1,4 +1,4 @@
-use super::{block::BlockLowerer, block_mapping::BlockMapping};
+use super::{block::BlockLowerer, block_mapping::BlockMapping, function::FunctionLoweringContext};
 use crate::{CodegenResult, data::StaticData, frame::FrameLayout};
 use fsc_mir::{Body, START_BLOCK};
 
@@ -29,14 +29,16 @@ impl<'layout, 'mir, 'output> BodyLowerer<'layout, 'mir, 'output> {
     }
 
     pub(super) fn lower(self) -> CodegenResult<()> {
+        let function =
+            FunctionLoweringContext::new(self.body, &self.frame, self.statics, &self.blocks);
+
         for (source, block) in &self.body.blocks {
-            let target = self.blocks.target(source);
+            let target = function.block(source);
             let output = self.output.block_mut(target);
             if source == START_BLOCK && self.frame.local_slots() != 0 {
                 output.push_instruction(fsb_ir::Instruction::GrowStack(self.frame.local_slots()));
             }
-            BlockLowerer::new(self.body, &self.frame, self.statics, &self.blocks, output)
-                .lower(block)?;
+            BlockLowerer::new(&function, output).lower(block)?;
         }
 
         Ok(())

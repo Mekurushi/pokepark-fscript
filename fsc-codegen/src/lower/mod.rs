@@ -3,6 +3,7 @@ mod block_mapping;
 mod body;
 mod context;
 mod declarations;
+mod function;
 mod operand;
 mod rvalue;
 mod statement;

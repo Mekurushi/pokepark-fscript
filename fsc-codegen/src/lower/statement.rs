@@ -3,11 +3,11 @@ use crate::CodegenResult;
 use fsb_ir::Instruction;
 use fsc_mir::{Operand, Statement, StatementKind};
 
-impl BlockLowerer<'_, '_, '_> {
+impl BlockLowerer<'_, '_> {
     pub(super) fn lower_statement(&mut self, statement: &Statement) -> CodegenResult<()> {
         match &statement.kind {
             StatementKind::Assign { target, value } => {
-                let target = self.places.resolve(target)?;
+                let target = self.function.resolve_place(target)?;
                 self.lower_rvalue_into(value, &target)
             }
             StatementKind::Pause { duration } => self.lower_pause(duration),

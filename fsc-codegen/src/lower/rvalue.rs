@@ -5,7 +5,7 @@ use fsc_mir::{
     BinaryOp, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty, UnaryOp, aggregate_fields,
 };
 
-impl BlockLowerer<'_, '_, '_> {
+impl BlockLowerer<'_, '_> {
     pub(super) fn lower_rvalue_into(
         &mut self,
         value: &Rvalue,
@@ -88,7 +88,7 @@ impl BlockLowerer<'_, '_, '_> {
     ) -> CodegenResult<()> {
         match operand {
             Operand::Place(source) => {
-                let source = self.places.resolve(source)?;
+                let source = self.function.resolve_place(source)?;
                 self.copy_place(&source, target)
             }
             Operand::Constant(constant) => self.lower_constant_into(constant, target),

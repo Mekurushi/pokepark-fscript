@@ -14,11 +14,11 @@ pub(super) enum ScalarKind {
     String,
 }
 
-impl BlockLowerer<'_, '_, '_> {
+impl BlockLowerer<'_, '_> {
     pub(super) fn lower_scalar_operand(&mut self, operand: &Operand) -> CodegenResult<ScalarKind> {
         match operand {
             Operand::Place(place) => {
-                let place = self.places.resolve(place)?;
+                let place = self.function.resolve_place(place)?;
                 let kind = scalar_kind(&place.ty);
                 self.lower_load_word(&place)?;
                 Ok(kind)

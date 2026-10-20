@@ -1,4 +1,4 @@
-use super::{LocalId, StaticId};
+use super::{LocalId, RETURN_PLACE, StaticId};
 use fsc_sema::types::FieldIdx;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -8,6 +8,10 @@ pub struct Place {
 }
 
 impl Place {
+    pub fn return_place() -> Self {
+        Self::from_local(RETURN_PLACE)
+    }
+
     pub fn from_local(local: LocalId) -> Self {
         Self {
             base: PlaceBase::Local(local),
