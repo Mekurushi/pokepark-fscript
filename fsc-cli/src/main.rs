@@ -84,11 +84,7 @@ fn check_file(args: CheckArgs) -> Result<(), ()> {
         source_name,
         &source,
     )?;
-    if output.has_errors() {
-        Err(())
-    } else {
-        Ok(())
-    }
+    if output.has_errors() { Err(()) } else { Ok(()) }
 }
 
 fn render_check_diagnostics(

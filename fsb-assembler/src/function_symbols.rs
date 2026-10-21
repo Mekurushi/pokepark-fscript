@@ -75,26 +75,6 @@ impl FunctionSymbols {
         Ok(())
     }
 
-    pub(crate) fn rename_function(
-        &mut self,
-        current_name: &str,
-        new_name: &str,
-    ) -> AssemblerResult<()> {
-        let Some(_function) = self.functions.get(current_name) else {
-            return Err(AssemblerError::UndefinedSymbol(current_name.to_owned()));
-        };
-        if self.functions.contains_key(new_name) {
-            return Err(AssemblerError::DuplicateSymbol(new_name.to_owned()));
-        }
-
-        let function = self
-            .functions
-            .remove(current_name)
-            .ok_or_else(|| AssemblerError::UndefinedSymbol(current_name.to_owned()))?;
-        self.functions.insert(new_name.to_owned(), function);
-        Ok(())
-    }
-
     pub(crate) fn remove(&mut self, name: &str) -> AssemblerResult<u32> {
         self.functions
             .remove(name)

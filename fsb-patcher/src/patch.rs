@@ -1,60 +1,63 @@
 use crate::{ConfigValues, ExternalSymbolTable, PatchFailure};
-use fsb_assembler::binary::{CODE_SECTION_FILE_OFFSET, FscriptBinary};
-use fsb_assembler::{Assembler, AssemblyUnit};
+use fsb_assembler::binary::{FscriptBinary, CODE_SECTION_FILE_OFFSET};
+use fsb_assembler::{
+    assemble_program, AssembledProgram, AssemblyUnit, ExternalDataOffsets, ExternalFunctionOffsets,
+};
+use fsb_ir::{FunctionId, Program};
 use fsc_diagnostics::{Diagnostic, Stage};
 use fsc_parse::ast::{Item, Script};
 
-struct ClassifiedFunction {
-    function_name: String,
-    patch_kind: FunctionPatchKind,
-}
-
-enum FunctionPatchKind {
-    Replacement {
-        entry_offset: u32,
-        generated_name: String,
-    },
-    Custom,
-}
-
-fn classify_functions(
-    script: &Script,
-    symbols: &ExternalSymbolTable,
+struct OriginalProgram {
+    script_name: String,
+    unit: AssemblyUnit,
     code_len: usize,
-) -> Result<Vec<ClassifiedFunction>, PatchFailure> {
-    script
-        .items
-        .iter()
-        .filter_map(|item| match item {
-            Item::FuncDef(function) => Some(function),
-            Item::ExternFuncDecl(_) | Item::ConstDecl(_) | Item::ConfigDecl(_) => None,
-        })
-        .map(|function| {
-            let patch_kind = match symbols.get_function(&function.header.name) {
-                // current behavior sets all functions that are listed in the original_symbols as
-                // replacement targets
-                Some(original_address) => {
-                    let entry_offset = function_entry_offset(
-                        &function.header.name,
-                        original_address,
-                        symbols.base_address(),
-                        code_len,
-                    )?;
-                    FunctionPatchKind::Replacement {
-                        entry_offset,
-                        // using $ to ensure uniqueness, because it can't be used by the normal flow
-                        generated_name: format!("$patch$replacement${}", function.header.name),
-                    }
-                }
-                None => FunctionPatchKind::Custom,
-            };
+}
 
-            Ok(ClassifiedFunction {
-                function_name: function.header.name.clone(),
-                patch_kind,
-            })
-        })
-        .collect()
+struct CompiledPatch {
+    syntax: Script,
+    program: Program,
+}
+
+struct PatchPlan {
+    replacements: Vec<PlannedReplacement>,
+    exports: Vec<PlannedExport>,
+    external_functions: ExternalFunctionOffsets,
+    output_symbols: ExternalSymbolTable,
+}
+
+struct PlannedReplacement {
+    function: FunctionId,
+    entry_offset: u32,
+}
+
+struct PlannedExport {
+    function: FunctionId,
+    name: String,
+}
+
+struct AssembledPatch {
+    program: AssembledProgram,
+    replacements: Vec<AssembledReplacement>,
+    exports: Vec<AssembledExport>,
+    external_functions: ExternalFunctionOffsets,
+    output_symbols: ExternalSymbolTable,
+}
+
+struct AssembledReplacement {
+    entry_offset: u32,
+    replacement_offset: u32,
+}
+
+struct AssembledExport {
+    name: String,
+    offset: u32,
+}
+
+struct LinkedProgram {
+    script_name: String,
+    unit: AssemblyUnit,
+    external_functions: ExternalFunctionOffsets,
+    output_symbols: ExternalSymbolTable,
 }
 
 fn function_entry_offset(
@@ -156,124 +159,200 @@ impl PatchArtifact {
 }
 
 pub fn patch(request: PatchRequest<'_>) -> Result<PatchArtifact, PatchFailure> {
-    let binary = FscriptBinary::deserialize(request.original_binary)?;
-    let original_code_len = binary.code_len();
-    let script = fsc_parse::parse(request.patch_source)
-        .map_err(|error| PatchFailure::InvalidPatchSource(error.into_diagnostics()))?;
-    let functions = classify_functions(&script, request.symbols, original_code_len)?;
-    let checked = fsc_sema::check(script)
-        .map_err(|error| PatchFailure::InvalidPatchSource(vec![error.into()]))?;
-    validate_external_declarations(checked.ast(), request.symbols, original_code_len)?;
-    let bound = fsc_sema::bind_configs(checked, request.config_values)
-        .map_err(|errors| PatchFailure::InvalidPatchSource(errors.into_diagnostics()))?;
-    let thir = fsc_sema::lower(bound)
-        .map_err(|error| PatchFailure::InvalidPatchSource(vec![error.into()]))?;
+    let original = load_original(request.original_binary)?;
+    let compiled = compile_patch(request.patch_source, request.config_values)?;
+    let plan = plan_patch(&original, &compiled, request.symbols)?;
+    let assembled = assemble_patch(&compiled.program, plan)?;
+    let linked = link_patch(original, assembled)?;
+    finalize_patch(linked)
+}
 
-    let (script_name, mut original_unit) = AssemblyUnit::from_binary(binary)?;
-    let mut assembler = Assembler::new();
-    fsc_codegen::compile(&thir, &mut assembler).map_err(|error| {
-        PatchFailure::InvalidPatchSource(vec![Diagnostic::error(Stage::Codegen, error.to_string())])
-    })?;
-    let mut patch_unit = assembler.into_unit();
+fn load_original(binary: &[u8]) -> Result<OriginalProgram, PatchFailure> {
+    let binary = FscriptBinary::deserialize(binary)?;
+    let code_len = binary.code_len();
+    let (script_name, unit) = AssemblyUnit::from_binary(binary)?;
 
-    prepare_replacements(&functions, &mut patch_unit)?;
-    install_external_symbols(&mut original_unit, request.symbols, original_code_len)?;
-
-    let mut merged_unit = original_unit.merge(patch_unit)?;
-    install_redirects(&mut merged_unit, &functions)?;
-    let output_symbols = build_output_symbols(request.symbols, &functions, &merged_unit)?;
-    let binary = merged_unit.into_binary(script_name)?.serialize()?;
-
-    Ok(PatchArtifact {
-        binary,
-        symbols: output_symbols,
+    Ok(OriginalProgram {
+        script_name,
+        unit,
+        code_len,
     })
 }
 
-fn prepare_replacements(
-    functions: &[ClassifiedFunction],
-    patch_unit: &mut AssemblyUnit,
-) -> Result<(), PatchFailure> {
-    for classified in functions {
-        let FunctionPatchKind::Replacement { generated_name, .. } = &classified.patch_kind else {
-            continue;
-        };
-        let original_name = &classified.function_name;
-        patch_unit.rename_function(original_name, generated_name)?;
-        patch_unit.make_function_private(generated_name)?;
-    }
+fn compile_patch(
+    source: &str,
+    config_values: &ConfigValues,
+) -> Result<CompiledPatch, PatchFailure> {
+    let syntax = fsc_parse::parse(source)
+        .map_err(|error| PatchFailure::InvalidPatchSource(error.into_diagnostics()))?;
+    let analysis = fsc_sema::analyze(&syntax, config_values)
+        .map_err(|diagnostics| PatchFailure::InvalidPatchSource(diagnostics.entries().to_vec()))?;
+    let mir = fsc_mir::lower(&analysis.thir);
+    let program = fsc_codegen::lower(&mir).map_err(|error| {
+        PatchFailure::InvalidPatchSource(vec![Diagnostic::error(Stage::Codegen, error.to_string())])
+    })?;
 
-    Ok(())
+    Ok(CompiledPatch { syntax, program })
 }
 
-fn install_external_symbols(
-    original_unit: &mut AssemblyUnit,
+fn plan_patch(
+    original: &OriginalProgram,
+    compiled: &CompiledPatch,
     symbols: &ExternalSymbolTable,
-    code_len: usize,
-) -> Result<(), PatchFailure> {
-    for (name, address) in symbols.functions() {
-        let external_offset =
-            function_entry_offset(name, address, symbols.base_address(), code_len)?;
-        if let Some(embedded_offset) = original_unit.function_offset(name) {
-            if embedded_offset != external_offset {
-                return Err(PatchFailure::ConflictingExternalSymbol {
-                    function_name: name.to_owned(),
-                    embedded_offset,
-                    external_offset,
-                });
-            }
-        } else {
-            original_unit.define_private_function(name, external_offset)?;
+) -> Result<PatchPlan, PatchFailure> {
+    validate_external_declarations(&compiled.syntax, symbols, original.code_len)?;
+    let external_functions =
+        build_external_function_offsets(&original.unit, symbols, original.code_len)?;
+    let mut replacements = Vec::new();
+    let mut exports = Vec::new();
+
+    for (function, definition) in compiled.program.functions() {
+        if let Some(address) = symbols.get_function(definition.name()) {
+            replacements.push(PlannedReplacement {
+                function,
+                entry_offset: function_entry_offset(
+                    definition.name(),
+                    address,
+                    symbols.base_address(),
+                    original.code_len,
+                )?,
+            });
+        } else if definition.linkage() == fsb_ir::Linkage::Exported {
+            exports.push(PlannedExport {
+                function,
+                name: definition.name().to_owned(),
+            });
         }
     }
 
-    Ok(())
+    Ok(PatchPlan {
+        replacements,
+        exports,
+        external_functions,
+        output_symbols: symbols.clone(),
+    })
 }
 
-fn install_redirects(
-    merged_unit: &mut AssemblyUnit,
-    functions: &[ClassifiedFunction],
-) -> Result<(), PatchFailure> {
-    for classified in functions {
-        let FunctionPatchKind::Replacement {
-            entry_offset,
-            generated_name,
-        } = &classified.patch_kind
-        else {
-            continue;
-        };
-        let target_offset = merged_unit.function_offset(generated_name).ok_or_else(|| {
-            fsb_assembler::error::AssemblerError::UndefinedSymbol(generated_name.clone())
+fn assemble_patch(program: &Program, plan: PatchPlan) -> Result<AssembledPatch, PatchFailure> {
+    let mut assembled = assemble_program(program)?;
+    let mut replacements = Vec::with_capacity(plan.replacements.len());
+    let mut exports = Vec::with_capacity(plan.exports.len());
+
+    for replacement in plan.replacements {
+        let replacement_offset =
+            assembled
+                .function_offset(replacement.function)
+                .ok_or_else(|| {
+                    fsb_assembler::error::AssemblerError::UndefinedSymbol(
+                        replacement.function.to_string(),
+                    )
+                })?;
+        assembled.make_function_private(replacement.function)?;
+        replacements.push(AssembledReplacement {
+            entry_offset: replacement.entry_offset,
+            replacement_offset,
+        });
+    }
+
+    for export in plan.exports {
+        let offset = assembled.function_offset(export.function).ok_or_else(|| {
+            fsb_assembler::error::AssemblerError::UndefinedSymbol(export.function.to_string())
         })?;
-        merged_unit.redirect(*entry_offset, target_offset)?;
+        exports.push(AssembledExport {
+            name: export.name,
+            offset,
+        });
     }
 
-    Ok(())
+    Ok(AssembledPatch {
+        program: assembled,
+        replacements,
+        exports,
+        external_functions: plan.external_functions,
+        output_symbols: plan.output_symbols,
+    })
 }
 
-fn build_output_symbols(
-    input_symbols: &ExternalSymbolTable,
-    functions: &[ClassifiedFunction],
-    merged_unit: &AssemblyUnit,
-) -> Result<ExternalSymbolTable, PatchFailure> {
-    // TODO: rethink symbol output
-    let mut output = input_symbols.clone();
+fn link_patch(
+    mut original: OriginalProgram,
+    assembled: AssembledPatch,
+) -> Result<LinkedProgram, PatchFailure> {
+    let patch_base = original.unit.append(assembled.program.into_unit())?;
+    install_redirects(&mut original.unit, &assembled.replacements, patch_base)?;
+    let mut output_symbols = assembled.output_symbols;
 
-    for classified in functions {
-        if !matches!(classified.patch_kind, FunctionPatchKind::Custom) {
-            continue;
-        }
-        let name = &classified.function_name;
-        let offset = merged_unit
-            .function_offset(name)
-            .ok_or_else(|| fsb_assembler::error::AssemblerError::UndefinedSymbol(name.clone()))?;
-        let address = input_symbols
+    for export in assembled.exports {
+        let offset = patch_base
+            .checked_add(export.offset)
+            .ok_or(fsb_assembler::error::AssemblerError::AddressOverflow)?;
+        let address = output_symbols
             .base_address()
             .checked_add(CODE_SECTION_FILE_OFFSET)
             .and_then(|code_address| code_address.checked_add(offset))
             .ok_or(fsb_assembler::error::AssemblerError::AddressOverflow)?;
-        output.insert_function(name.clone(), address);
+        output_symbols.insert_function(export.name, address);
     }
 
-    Ok(output)
+    Ok(LinkedProgram {
+        script_name: original.script_name,
+        unit: original.unit,
+        external_functions: assembled.external_functions,
+        output_symbols,
+    })
+}
+
+fn finalize_patch(linked: LinkedProgram) -> Result<PatchArtifact, PatchFailure> {
+    let binary = linked
+        .unit
+        .into_binary_with_externals(
+            linked.script_name,
+            &linked.external_functions,
+            &ExternalDataOffsets::new(),
+        )?
+        .serialize()?;
+
+    Ok(PatchArtifact {
+        binary,
+        symbols: linked.output_symbols,
+    })
+}
+
+fn build_external_function_offsets(
+    original_unit: &AssemblyUnit,
+    symbols: &ExternalSymbolTable,
+    code_len: usize,
+) -> Result<ExternalFunctionOffsets, PatchFailure> {
+    let mut external_functions = ExternalFunctionOffsets::new();
+
+    for (name, address) in symbols.functions() {
+        let external_offset =
+            function_entry_offset(name, address, symbols.base_address(), code_len)?;
+        if let Some(embedded_offset) = original_unit.function_offset(name)
+            && embedded_offset != external_offset
+        {
+            return Err(PatchFailure::ConflictingExternalSymbol {
+                function_name: name.to_owned(),
+                embedded_offset,
+                external_offset,
+            });
+        }
+        external_functions.define(name, external_offset)?;
+    }
+
+    Ok(external_functions)
+}
+
+fn install_redirects(
+    output_unit: &mut AssemblyUnit,
+    replacements: &[AssembledReplacement],
+    patch_base: u32,
+) -> Result<(), PatchFailure> {
+    for replacement in replacements {
+        let target_offset = patch_base
+            .checked_add(replacement.replacement_offset)
+            .ok_or(fsb_assembler::error::AssemblerError::AddressOverflow)?;
+        output_unit.redirect(replacement.entry_offset, target_offset)?;
+    }
+
+    Ok(())
 }

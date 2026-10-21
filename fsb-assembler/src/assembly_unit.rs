@@ -75,7 +75,7 @@ impl AssemblyUnit {
         Ok(self)
     }
 
-    pub fn merge(mut self, other: Self) -> AssemblerResult<Self> {
+    pub fn append(&mut self, other: Self) -> AssemblerResult<u32> {
         let offset =
             u32::try_from(self.code.len()).map_err(|_error| AssemblerError::AddressOverflow)?;
         let other = other.rebase(offset)?;
@@ -85,29 +85,7 @@ impl AssemblyUnit {
         self.code.extend(other.code);
         self.relocations.extend(other.relocations);
 
-        Ok(self)
-    }
-
-    pub fn rename_function(&mut self, current_name: &str, new_name: &str) -> AssemblerResult<()> {
-        self.function_symbols
-            .rename_function(current_name, new_name)?;
-
-        for relocation in &mut self.relocations {
-            match &mut relocation.kind {
-                RelocationKind::ExternalCall { symbol } if symbol == current_name => {
-                    new_name.clone_into(symbol);
-                }
-                RelocationKind::ExternalCall { .. }
-                | RelocationKind::ExternalDataAddress { .. }
-                | RelocationKind::StringOffset { .. } => {}
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn remove_function_symbol(&mut self, name: &str) -> AssemblerResult<u32> {
-        self.function_symbols.remove(name)
+        Ok(offset)
     }
 
     pub fn redirect(&mut self, entry_offset: u32, target_offset: u32) -> AssemblerResult<()> {

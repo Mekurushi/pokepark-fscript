@@ -83,7 +83,9 @@ pub fn compile(request: CompileRequest<'_>) -> Result<CompileArtifact, CompileFa
         .map_err(|diagnostics| CompileFailure::from_diagnostics(diagnostics.entries().to_vec()))?;
     let mir = fsc_mir::lower(&analysis.thir);
     let program = fsc_codegen::lower(&mir).map_err(codegen_failure)?;
-    let assembly = fsb_assembler::assemble_program(&program).map_err(assembly_failure)?;
+    let assembly = fsb_assembler::assemble_program(&program)
+        .map_err(assembly_failure)?
+        .into_unit();
     let binary = assembly
         .into_binary(request.script_name.to_owned())
         .map_err(assembly_failure)?;

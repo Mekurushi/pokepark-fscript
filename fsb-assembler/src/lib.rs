@@ -9,7 +9,7 @@ mod external_function_offsets;
 mod function_symbols;
 pub mod string_table;
 
-pub use assembler::assemble_program;
+pub use assembler::{AssembledProgram, assemble_program};
 pub use assembly_unit::AssemblyUnit;
 pub use external_data_offsets::ExternalDataOffsets;
 pub use external_function_offsets::ExternalFunctionOffsets;

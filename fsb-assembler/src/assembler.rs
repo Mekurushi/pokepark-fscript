@@ -14,7 +14,39 @@ use crate::error::{AssemblerError, AssemblerResult};
 use crate::function_symbols::FunctionSymbols;
 use crate::string_table::StringTable;
 
-pub fn assemble_program(program: &Program) -> AssemblerResult<AssemblyUnit> {
+pub struct AssembledProgram {
+    unit: AssemblyUnit,
+    function_offsets: HashMap<FunctionId, u32>,
+    exported_functions: HashMap<FunctionId, String>,
+}
+
+impl AssembledProgram {
+    pub fn function_offset(&self, function: FunctionId) -> Option<u32> {
+        self.function_offsets.get(&function).copied()
+    }
+
+    pub fn unit(&self) -> &AssemblyUnit {
+        &self.unit
+    }
+
+    pub fn make_function_private(&mut self, function: FunctionId) -> AssemblerResult<()> {
+        if !self.function_offsets.contains_key(&function) {
+            return Err(AssemblerError::UndefinedSymbol(function.to_string()));
+        }
+
+        if let Some(name) = self.exported_functions.remove(&function) {
+            self.unit.function_symbols.remove(&name)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn into_unit(self) -> AssemblyUnit {
+        self.unit
+    }
+}
+
+pub fn assemble_program(program: &Program) -> AssemblerResult<AssembledProgram> {
     Assembler::new().assemble(program)
 }
 
@@ -37,7 +69,7 @@ impl Assembler {
         }
     }
 
-    fn assemble(mut self, program: &Program) -> AssemblerResult<AssemblyUnit> {
+    fn assemble(mut self, program: &Program) -> AssemblerResult<AssembledProgram> {
         let mut layout = Layout::default();
         let mut fixups = Vec::new();
 
@@ -66,18 +98,23 @@ impl Assembler {
             }
         }
 
-        let mut exports = Vec::new();
+        let mut exported_functions = HashMap::new();
         for (id, function) in program.functions() {
             if function.linkage() == Linkage::Exported {
-                exports.push((function.name().to_owned(), layout.function(id)?));
+                exported_functions.insert(id, function.name().to_owned());
             }
         }
         let mut unit = self.into_unit();
         apply_fixups(&mut unit, &layout, &fixups)?;
-        for (name, offset) in exports {
-            unit.function_symbols.define_function(name, offset)?;
+        for (&id, name) in &exported_functions {
+            unit.function_symbols
+                .define_function(name.clone(), layout.function(id)?)?;
         }
-        Ok(unit)
+        Ok(AssembledProgram {
+            unit,
+            function_offsets: layout.functions,
+            exported_functions,
+        })
     }
 }
 
@@ -483,7 +520,7 @@ mod tests {
                 frame_slots: 0,
             });
 
-        let unit = assemble_program(&program).unwrap();
+        let unit = assemble_program(&program).unwrap().into_unit();
 
         assert_eq!(unit.function_offset("caller"), Some(0));
         assert_eq!(unit.function_offset("callee"), None);
@@ -509,7 +546,7 @@ mod tests {
                 frame_slots: 0,
             });
 
-        let unit = assemble_program(&program).unwrap();
+        let unit = assemble_program(&program).unwrap().into_unit();
 
         assert_eq!(unit.code[0..4], [0x00, 0x01, 0x00, 0x19]);
         assert_eq!(unit.code[8..12], 0x1234_5678_u32.to_be_bytes());
@@ -530,7 +567,7 @@ mod tests {
             frame_slots: 0,
         });
 
-        let unit = assemble_program(&program).unwrap();
+        let unit = assemble_program(&program).unwrap().into_unit();
         let mut external_functions = ExternalFunctionOffsets::new();
         external_functions.define("external", 12).unwrap();
         let serialized = unit
@@ -563,7 +600,7 @@ mod tests {
             frame_slots: 0,
         });
 
-        let unit = assemble_program(&program).unwrap();
+        let unit = assemble_program(&program).unwrap().into_unit();
         let mut external_data = ExternalDataOffsets::new();
         external_data.define("external_data", 8).unwrap();
         let binary = unit
@@ -597,6 +634,7 @@ mod tests {
 
         let binary = assemble_program(&program)
             .unwrap()
+            .into_unit()
             .into_binary("test".to_owned())
             .unwrap();
         let serialized = binary.serialize().unwrap();

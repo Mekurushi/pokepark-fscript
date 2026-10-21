@@ -5,8 +5,10 @@ edition = "2024"
 
 [dependencies]
 fsb-assembler = { path = "../fsb-assembler" }
+fsb-ir = { path = "../fsb-ir" }
 fsc-codegen = { path = "../fsc-codegen" }
 fsc-diagnostics = { path = "../fsc-diagnostics" }
+fsc-mir = { path = "../fsc-mir" }
 fsc-parse = { path = "../fsc-parse" }
 fsc-sema = { path = "../fsc-sema" }
 serde = { version = "1", features = ["derive"] }

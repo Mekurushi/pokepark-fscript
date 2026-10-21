@@ -31,9 +31,11 @@ fn run(cli: Cli) -> Result<(), ()> {
     let program = fsa::lower(&script).map_err(|error| {
         eprintln!("error: could not lower {}: {error}", input.display());
     })?;
-    let unit = fsb_assembler::assemble_program(&program).map_err(|error| {
-        eprintln!("error: could not assemble {}: {error}", input.display());
-    })?;
+    let unit = fsb_assembler::assemble_program(&program)
+        .map_err(|error| {
+            eprintln!("error: could not assemble {}: {error}", input.display());
+        })?
+        .into_unit();
     let binary = unit.into_binary(script_name.to_owned()).map_err(|error| {
         eprintln!("error: could not finalize {}: {error}", input.display());
     })?;
