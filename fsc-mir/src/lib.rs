@@ -2,13 +2,13 @@ mod build;
 mod ir;
 
 pub use build::lower;
-pub use fsc_sema::types::{AggregateField, FieldIdx, Ty, aggregate_fields};
+pub use fsc_sema::types::{aggregate_fields, AggregateField, FieldIdx, Ty};
 pub use ir::{
     BasicBlock, BasicBlockId, BinaryOp, Body, ConstValue, Constant, DebugValue, FieldOperand,
-    Function, FunctionId, FunctionKind, FunctionSignature, Linkage, LocalDecl, LocalId, Operand,
-    Place, PlaceBase, ProjectionElem, RETURN_PLACE, Rvalue, START_BLOCK, Script, SourceInfo,
-    Statement, StatementKind, StaticDecl, StaticId, Terminator, TerminatorKind, UnaryOp,
-    VariableDebugInfo,
+    Function, FunctionId, FunctionKind, FunctionSignature, Linkage, LocalDecl, LocalId, LocalKind,
+    Operand, Place, PlaceBase, ProjectionElem, Rvalue, Script, SourceInfo, Statement,
+    StatementKind, StaticDecl, StaticId, Terminator, TerminatorKind, UnaryOp, VariableDebugInfo,
+    RETURN_PLACE, START_BLOCK,
 };
 
 //TODO: optimization pass

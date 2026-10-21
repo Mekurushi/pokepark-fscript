@@ -1,6 +1,6 @@
-use crate::{CodegenError, CodegenResult, abi::PassMode};
-use cranelift_entity::{EntityRef, SecondaryMap};
-use fsc_mir::{Body, LocalId, RETURN_PLACE, Ty, aggregate_fields};
+use crate::{abi::PassMode, CodegenError, CodegenResult};
+use cranelift_entity::SecondaryMap;
+use fsc_mir::{aggregate_fields, Body, LocalId, LocalKind, Ty, RETURN_PLACE};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FrameSlot(i16);
@@ -72,19 +72,20 @@ impl FrameLayout {
                 continue;
             }
 
-            let parameter = is_parameter(local, body.argument_count);
-            let (width, kind) =
-                if parameter && parameter_modes[local.index() - 1] == PassMode::Indirect {
-                    (1, AllocationKind::Indirect)
-                } else {
-                    let width = slot_width(&declaration.ty).ok_or_else(|| {
-                        CodegenError::UnsupportedLocalType {
-                            local,
-                            ty: declaration.ty.clone(),
-                        }
-                    })?;
-                    (width, AllocationKind::Inline)
-                };
+            let local_kind = body.local_kind(local);
+            let (width, kind) = if let LocalKind::Parameter { index } = local_kind
+                && parameter_modes[index] == PassMode::Indirect
+            {
+                (1, AllocationKind::Indirect)
+            } else {
+                let width = slot_width(&declaration.ty).ok_or_else(|| {
+                    CodegenError::UnsupportedLocalType {
+                        local,
+                        ty: declaration.ty.clone(),
+                    }
+                })?;
+                (width, AllocationKind::Inline)
+            };
 
             if width == 0 {
                 return Err(CodegenError::UnsupportedLocalType {
@@ -93,13 +94,16 @@ impl FrameLayout {
                 });
             }
 
-            let base = if parameter {
-                let base = FrameSlot(parameter_slots.as_offset());
-                parameter_slots = parameter_slots.checked_add(width)?;
-                base
-            } else {
-                local_slots = local_slots.checked_add(width)?;
-                FrameSlot(-local_slots.as_offset())
+            let base = match local_kind {
+                LocalKind::Parameter { .. } => {
+                    let base = FrameSlot(parameter_slots.as_offset());
+                    parameter_slots = parameter_slots.checked_add(width)?;
+                    base
+                }
+                LocalKind::Return | LocalKind::Local => {
+                    local_slots = local_slots.checked_add(width)?;
+                    FrameSlot(-local_slots.as_offset())
+                }
             };
             allocations.insert(local, Some(FrameAllocation { base, kind }));
         }
@@ -110,10 +114,6 @@ impl FrameLayout {
             parameter_slots,
             local_slots,
         })
-    }
-
-    pub(crate) const fn parameter_slots(&self) -> u16 {
-        self.parameter_slots.get()
     }
 
     pub(crate) const fn local_slots(&self) -> u16 {
@@ -134,12 +134,6 @@ impl FrameLayout {
             .and_then(|allocation| *allocation)
             .ok_or(CodegenError::MissingLocalAllocation(local))
     }
-}
-
-// using the invariant regarding argument order from the MIR
-fn is_parameter(local: LocalId, argument_count: usize) -> bool {
-    let index = local.index();
-    index > RETURN_PLACE.index() && index <= argument_count
 }
 
 pub(crate) fn slot_width(ty: &Ty) -> Option<u16> {
