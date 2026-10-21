@@ -17,7 +17,22 @@ impl BodyLowerer<'_, '_> {
             hir::ExprKind::String(value) => {
                 thir::ExprKind::Constant(thir::ConstValue::String(value.clone()))
             }
-            hir::ExprKind::Local(local) => self.lower_local(*local),
+            hir::ExprKind::Local(local) => {
+                let kind = self.lower_local(*local);
+                match &self.body.locals[*local].ty {
+                    Ty::Reference(_) => {
+                        let operand = self.expressions.push(thir::Expr {
+                            kind,
+                            ty: self.body.locals[*local].ty.clone(),
+                            source: thir::SourceInfo {
+                                span: expression.span,
+                            },
+                        });
+                        thir::ExprKind::Deref { operand }
+                    }
+                    _ => kind,
+                }
+            }
             hir::ExprKind::ItemRef(item) => self.lower_item(*item),
             hir::ExprKind::Member { base, .. } => {
                 let base = self.lower_expression(base);
@@ -142,6 +157,7 @@ const fn lower_unary_operator(operator: hir::UnaryOp) -> thir::UnaryOp {
     match operator {
         hir::UnaryOp::Not => thir::UnaryOp::Not,
         hir::UnaryOp::Neg => thir::UnaryOp::Negate,
+        hir::UnaryOp::AddressOf => thir::UnaryOp::AddressOf,
     }
 }
 

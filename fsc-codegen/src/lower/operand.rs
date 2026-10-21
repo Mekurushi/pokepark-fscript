@@ -263,7 +263,7 @@ fn scalar_kind(ty: &Ty) -> ScalarKind {
         Ty::Float => ScalarKind::Float,
         Ty::Bool => ScalarKind::Bool,
         Ty::Str => ScalarKind::String,
-        Ty::Vec3 | Ty::Array { .. } | Ty::Void => {
+        Ty::Vec3 | Ty::Array { .. } | Ty::Reference(_) | Ty::Void => {
             unreachable!("MIR scalar operand must have scalar type")
         }
     }

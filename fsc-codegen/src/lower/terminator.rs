@@ -39,7 +39,7 @@ impl BlockLowerer<'_, '_> {
         let kind = match self.function.return_type() {
             Ty::Void => ReturnKind::None,
             Ty::Int | Ty::Float | Ty::Bool | Ty::Str => ReturnKind::Value,
-            Ty::Vec3 | Ty::Array { .. } => {
+            Ty::Vec3 | Ty::Array { .. } | Ty::Reference(_) => {
                 unreachable!("MIR function must have a supported return type")
             }
         };

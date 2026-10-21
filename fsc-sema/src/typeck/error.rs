@@ -33,6 +33,10 @@ pub(super) enum TypeckError {
         actual: usize,
         span: Span,
     },
+    UnsupportedRawSyscallArgument {
+        actual: Ty,
+        span: Span,
+    },
     InvalidUnaryOperand {
         op: hir::UnaryOp,
         actual: Ty,
@@ -101,6 +105,11 @@ impl std::fmt::Display for TypeckError {
                 formatter,
                 "raw syscall requires page and function selectors; expected at least 2 arguments, found {actual}"
             ),
+            Self::UnsupportedRawSyscallArgument { actual, .. } => write!(
+                formatter,
+                "raw syscall argument cannot have type `{}`",
+                TypeName(actual)
+            ),
             Self::InvalidUnaryOperand { op, actual, .. } => write!(
                 formatter,
                 "operator `{}` cannot be applied to `{}`",
@@ -144,6 +153,9 @@ impl From<TypeckError> for Diagnostic {
             TypeckError::MissingRawSyscallSelectors { span, .. } => {
                 (*span, "missing raw syscall selector")
             }
+            TypeckError::UnsupportedRawSyscallArgument { span, .. } => {
+                (*span, "pass a scalar value or an explicit reference")
+            }
             TypeckError::InvalidUnaryOperand { span, .. }
             | TypeckError::InvalidBinaryOperands { span, .. } => (*span, "invalid operand type"),
             TypeckError::UnknownMember { span, .. } => (*span, "unknown member"),
@@ -167,6 +179,7 @@ impl std::fmt::Display for TypeName<'_> {
             Ty::Array { element, length } => {
                 write!(formatter, "[{}; {length}]", TypeName(element))
             }
+            Ty::Reference(referent) => write!(formatter, "{}&", TypeName(referent)),
             Ty::Void => formatter.write_str("void"),
             Ty::Bool => formatter.write_str("bool"),
             Ty::Str => formatter.write_str("string"),
@@ -181,6 +194,7 @@ impl std::fmt::Display for UnaryOpName {
         formatter.write_str(match self.0 {
             hir::UnaryOp::Not => "!",
             hir::UnaryOp::Neg => "-",
+            hir::UnaryOp::AddressOf => "&",
         })
     }
 }

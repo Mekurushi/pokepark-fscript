@@ -74,6 +74,7 @@ pub enum ExprKind {
 pub enum UnaryOp {
     Not,
     Neg,
+    AddressOf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

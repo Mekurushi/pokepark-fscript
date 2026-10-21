@@ -1,6 +1,6 @@
 use crate::{
     CodegenError, CodegenResult,
-    abi::{PassMode, pass_mode},
+    abi::ParameterAbi,
 };
 use cranelift_entity::PrimaryMap;
 use fsb_ir::{ExternalFunction, FunctionId as FsbFunctionId, FunctionRef, Program};
@@ -8,12 +8,12 @@ use fsc_mir::{FunctionId, FunctionKind, Linkage, Script};
 
 pub(super) struct FunctionDeclaration {
     reference: FunctionRef,
-    parameter_modes: Box<[PassMode]>,
+    parameters: Box<[ParameterAbi]>,
 }
 
 impl FunctionDeclaration {
-    pub(super) const fn parameter_modes(&self) -> &[PassMode] {
-        &self.parameter_modes
+    pub(super) const fn parameters(&self) -> &[ParameterAbi] {
+        &self.parameters
     }
 }
 
@@ -34,12 +34,12 @@ impl FunctionMapping {
                     FunctionRef::External(ExternalFunction::new(&function.name))
                 }
             };
-            let parameter_modes = function
+            let parameters = function
                 .signature
                 .parameters
                 .iter()
                 .map(|ty| {
-                    pass_mode(ty).unwrap_or_else(|| {
+                    ParameterAbi::from_type(ty).unwrap_or_else(|| {
                         unreachable!(
                             "unsupported parameter type reached codegen declaration \
                         lowering"
@@ -49,7 +49,7 @@ impl FunctionMapping {
                 .collect();
             let declared = declarations.push(FunctionDeclaration {
                 reference,
-                parameter_modes,
+                parameters,
             });
             debug_assert_eq!(source, declared);
         }

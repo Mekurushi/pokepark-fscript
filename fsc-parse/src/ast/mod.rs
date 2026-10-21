@@ -8,6 +8,7 @@ pub enum Ty {
     Int,
     Float,
     Vec3, //TODO: aggregate assignment
+    Reference(Box<Ty>),
     Void,
     Bool,
     Str,
@@ -33,8 +34,9 @@ pub enum BinOp {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum UnaryOp {
-    Not, // !
-    Neg, // -
+    Not,       // !
+    Neg,       // -
+    AddressOf, // &
 }
 
 #[derive(Debug, Clone, PartialEq)]

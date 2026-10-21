@@ -39,9 +39,15 @@ pub(super) fn compatibility(actual: &Ty, expected: &Ty) -> Compatibility {
 
 pub(super) fn type_allowed(ty: &Ty, context: TypeContext) -> bool {
     match context {
-        TypeContext::Parameter | TypeContext::Local => *ty != Ty::Void,
+        TypeContext::Parameter => match ty {
+            Ty::Reference(referent) => !matches!(referent.as_ref(), Ty::Void | Ty::Reference(_)),
+            _ => *ty != Ty::Void,
+        },
+        TypeContext::Local => *ty != Ty::Void && !matches!(ty, Ty::Reference(_)),
         // TODO: add vec3 constants with proper end-to-end support (aggregates etc.)
-        TypeContext::Constant => *ty != Ty::Void && *ty != Ty::Vec3,
+        TypeContext::Constant => {
+            *ty != Ty::Void && *ty != Ty::Vec3 && !matches!(ty, Ty::Reference(_))
+        }
         TypeContext::Config => matches!(ty, Ty::Int | Ty::Float | Ty::Bool | Ty::Str),
         TypeContext::Return => supports_return(ty),
     }
@@ -65,4 +71,11 @@ pub(super) fn supports_ordering(ty: &Ty) -> bool {
 
 pub(super) fn supports_equality(ty: &Ty) -> bool {
     matches!(ty, Ty::Int | Ty::Float | Ty::Bool)
+}
+
+pub(super) fn supports_raw_syscall_argument(ty: &Ty) -> bool {
+    matches!(
+        ty,
+        Ty::Int | Ty::Float | Ty::Bool | Ty::Str | Ty::Reference(_)
+    )
 }

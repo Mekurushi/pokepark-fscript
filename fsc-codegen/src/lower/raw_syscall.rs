@@ -1,7 +1,7 @@
 use super::block::BlockLowerer;
-use crate::{CodegenError, CodegenResult, abi::PassMode, abi::pass_mode};
+use crate::CodegenResult;
 use fsb_ir::Instruction;
-use fsc_mir::{Operand, Place};
+use fsc_mir::{CallArgument, Place};
 
 impl BlockLowerer<'_, '_> {
     pub(super) fn lower_raw_syscall(
@@ -9,7 +9,7 @@ impl BlockLowerer<'_, '_> {
         destination: Option<&Place>,
         page: u8,
         function: u16,
-        arguments: &[Operand],
+        arguments: &[CallArgument],
     ) -> CodegenResult<()> {
         // TODO: theoretically invariant, but sema is still not validating (who would even ever use
         // 256 parameters)
@@ -34,27 +34,14 @@ impl BlockLowerer<'_, '_> {
         Ok(())
     }
 
-    fn lower_raw_syscall_argument(&mut self, argument: &Operand) -> CodegenResult<()> {
+    fn lower_raw_syscall_argument(&mut self, argument: &CallArgument) -> CodegenResult<()> {
         match argument {
-            Operand::Place(place) => {
+            CallArgument::Reference(place) => {
                 let place = self.function.resolve_place(place)?;
-                match pass_mode(&place.ty) {
-                    Some(PassMode::Direct) => self.lower_load_word(&place),
-                    Some(PassMode::Indirect) => {
-                        self.lower_place_address(&place);
-                        Ok(())
-                    }
-                    None => unreachable!("void raw syscall argument reached codegen"),
-                }
+                self.lower_place_address(&place);
+                Ok(())
             }
-            Operand::Constant(constant) => match pass_mode(&constant.ty) {
-                Some(PassMode::Direct) => {
-                    self.lower_scalar_constant_value(&constant.value);
-                    Ok(())
-                }
-                Some(PassMode::Indirect) => Err(CodegenError::UnsupportedType(constant.ty.clone())),
-                None => unreachable!("void raw syscall argument reached codegen"),
-            },
+            CallArgument::Value(argument) => self.lower_scalar_operand(argument).map(|_| ()),
         }
     }
 }

@@ -281,7 +281,12 @@ impl Parser {
     }
 
     fn parse_param(&mut self) -> ParseResult<Param> {
-        let (ty, ty_span) = self.parse_type_keyword()?;
+        let start = self.ts.current_offset();
+        let (mut ty, _) = self.parse_type_keyword()?;
+        if self.ts.eat(&TokenKind::Amp) {
+            ty = Ty::Reference(Box::new(ty));
+        }
+        let ty_span = self.ts.span_consumed_from(start);
         let (name, name_span) = self.ts.expect_ident()?;
         Ok(Param {
             name,
@@ -480,7 +485,7 @@ impl Parser {
             Some(TokenKind::StrLit(_)) => self.parse_string_literal(),
             Some(TokenKind::Ident(_)) => self.parse_identifier(),
             Some(TokenKind::LParen) => self.parse_group(),
-            Some(TokenKind::Bang | TokenKind::Minus) => self.parse_unary(),
+            Some(TokenKind::Bang | TokenKind::Minus | TokenKind::Amp) => self.parse_unary(),
             Some(TokenKind::KwSysCall) => self.parse_syscall(),
             _ => Err(self.ts.unexpected("expression")),
         }?;
@@ -544,6 +549,7 @@ impl Parser {
         let op = match self.ts.peek() {
             Some(TokenKind::Bang) => UnaryOp::Not,
             Some(TokenKind::Minus) => UnaryOp::Neg,
+            Some(TokenKind::Amp) => UnaryOp::AddressOf,
             _ => return Err(self.ts.unexpected("unary operator")),
         };
         self.ts.advance();

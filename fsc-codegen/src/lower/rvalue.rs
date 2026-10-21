@@ -119,7 +119,7 @@ impl BlockLowerer<'_, '_> {
                 }
                 Ok(())
             }
-            Ty::Void => unreachable!("void place reached codegen"),
+            Ty::Reference(_) | Ty::Void => unreachable!("unsupported place reached codegen"),
         }
     }
 

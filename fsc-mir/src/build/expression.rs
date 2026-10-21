@@ -1,7 +1,7 @@
 use super::{body::BodyBuilder, context::lower_source};
 use crate::{
-    BinaryOp, ConstValue, Constant, FieldOperand, Operand, Place, ProjectionElem, Rvalue,
-    Statement, StatementKind, UnaryOp,
+    BinaryOp, CallArgument, ConstValue, Constant, FieldOperand, Operand, Place, ProjectionElem,
+    Rvalue, Statement, StatementKind, UnaryOp,
 };
 use fsc_sema::{thir, types::Ty};
 
@@ -13,7 +13,9 @@ impl BodyBuilder<'_> {
                 let ty = self.thir.expressions[expression].ty.clone();
                 Operand::Constant(Constant { value, ty })
             }
-            thir::ExprKind::Local(_) => Operand::Place(self.lower_place(expression)),
+            thir::ExprKind::Local(_) | thir::ExprKind::Deref { .. } => {
+                Operand::Place(self.lower_place(expression))
+            }
             thir::ExprKind::Field { base, field } => {
                 let (base, field) = (*base, *field);
                 Operand::Place(self.lower_field_value(base, field))
@@ -62,6 +64,7 @@ impl BodyBuilder<'_> {
         match &self.thir.expressions[expression].kind {
             thir::ExprKind::Constant(_)
             | thir::ExprKind::Local(_)
+            | thir::ExprKind::Deref { .. }
             | thir::ExprKind::Field { .. } => Rvalue::Use(self.lower_operand(expression)),
             thir::ExprKind::Array { elements } => {
                 let elements = elements.clone();
@@ -157,7 +160,10 @@ impl BodyBuilder<'_> {
                 StatementKind::Call {
                     destination,
                     callee: self.mapped_function(callee),
-                    arguments: self.lower_arguments(&arguments),
+                    arguments: arguments
+                        .iter()
+                        .map(|argument| self.lower_call_argument(*argument))
+                        .collect(),
                 }
             }
             thir::ExprKind::RawSyscall {
@@ -170,7 +176,10 @@ impl BodyBuilder<'_> {
                     destination,
                     page: page.get(),
                     function: function.get(),
-                    arguments: self.lower_arguments(&arguments),
+                    arguments: arguments
+                        .iter()
+                        .map(|argument| self.lower_call_argument(*argument))
+                        .collect(),
                 }
             }
             _ => unreachable!("only effectful expressions lower as effect statements"),
@@ -180,13 +189,6 @@ impl BodyBuilder<'_> {
             kind,
             source: lower_source(source),
         });
-    }
-
-    fn lower_arguments(&mut self, expressions: &[thir::ExprId]) -> Box<[Operand]> {
-        expressions
-            .iter()
-            .map(|expression| self.lower_argument(*expression))
-            .collect()
     }
 
     fn lower_argument(&mut self, expression: thir::ExprId) -> Operand {
@@ -206,9 +208,22 @@ impl BodyBuilder<'_> {
         Operand::Place(destination)
     }
 
+    fn lower_call_argument(&mut self, expression: thir::ExprId) -> CallArgument {
+        if let thir::ExprKind::Unary {
+            op: thir::UnaryOp::AddressOf,
+            operand,
+        } = self.thir.expressions[expression].kind
+        {
+            return CallArgument::Reference(self.lower_place(operand));
+        }
+
+        CallArgument::Value(self.lower_argument(expression))
+    }
+
     pub(super) fn lower_place(&self, expression: thir::ExprId) -> Place {
         match &self.thir.expressions[expression].kind {
             thir::ExprKind::Local(local) => Place::from_local(self.mapped_local(*local)),
+            thir::ExprKind::Deref { operand } => append_deref(self.lower_place(*operand)),
             thir::ExprKind::Field { base, field } => append_field(self.lower_place(*base), *field),
             _ => unreachable!("THIR place must be rooted in a local"),
         }
@@ -257,6 +272,13 @@ fn append_field(mut place: Place, field: fsc_sema::types::FieldIdx) -> Place {
     place
 }
 
+fn append_deref(mut place: Place) -> Place {
+    let mut projection = place.projection.into_vec();
+    projection.push(ProjectionElem::Deref);
+    place.projection = projection.into_boxed_slice();
+    place
+}
+
 fn lower_const(value: &thir::ConstValue) -> ConstValue {
     match value {
         thir::ConstValue::Int(value) => ConstValue::Int(*value),
@@ -272,10 +294,13 @@ fn lower_const(value: &thir::ConstValue) -> ConstValue {
     }
 }
 
-const fn lower_unary(op: thir::UnaryOp) -> UnaryOp {
+fn lower_unary(op: thir::UnaryOp) -> UnaryOp {
     match op {
         thir::UnaryOp::Not => UnaryOp::Not,
         thir::UnaryOp::Negate => UnaryOp::Negate,
+        thir::UnaryOp::AddressOf => {
+            unreachable!("address-of reached MIR rvalue lowering before call lowering support")
+        }
     }
 }
 

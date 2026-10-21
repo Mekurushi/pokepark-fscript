@@ -1,4 +1,7 @@
-use crate::{abi::PassMode, CodegenError, CodegenResult};
+use crate::{
+    CodegenError, CodegenResult,
+    abi::{ParameterAbi, PassMode},
+};
 use cranelift_entity::SecondaryMap;
 use fsc_mir::{aggregate_fields, Body, LocalId, LocalKind, Ty, RETURN_PLACE};
 
@@ -61,8 +64,8 @@ pub(crate) struct FrameLayout {
 }
 
 impl FrameLayout {
-    pub(crate) fn plan(body: &Body, parameter_modes: &[PassMode]) -> CodegenResult<Self> {
-        debug_assert_eq!(body.argument_count, parameter_modes.len());
+    pub(crate) fn plan(body: &Body, parameters: &[ParameterAbi]) -> CodegenResult<Self> {
+        debug_assert_eq!(body.argument_count, parameters.len());
         let mut allocations = SecondaryMap::new();
         let mut parameter_slots = SlotCount::ZERO;
         let mut local_slots = SlotCount::ZERO;
@@ -74,7 +77,7 @@ impl FrameLayout {
 
             let local_kind = body.local_kind(local);
             let (width, kind) = if let LocalKind::Parameter { index } = local_kind
-                && parameter_modes[index] == PassMode::Indirect
+                && parameters[index].mode == PassMode::Indirect
             {
                 (1, AllocationKind::Indirect)
             } else {
@@ -144,7 +147,7 @@ pub(crate) fn slot_width(ty: &Ty) -> Option<u16> {
     }
 
     match ty {
-        Ty::Int | Ty::Float | Ty::Bool | Ty::Str => Some(1),
+        Ty::Int | Ty::Float | Ty::Bool | Ty::Str | Ty::Reference(_) => Some(1),
         Ty::Void => Some(0),
         Ty::Array { element, length } => {
             let length = u16::try_from(*length).ok()?;

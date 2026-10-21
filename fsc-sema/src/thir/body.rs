@@ -77,6 +77,9 @@ pub struct Expr {
 pub enum ExprKind {
     Constant(ConstValue),
     Local(LocalId),
+    Deref {
+        operand: ExprId,
+    },
     Field {
         base: ExprId,
         field: FieldIdx,
@@ -143,6 +146,7 @@ pub struct FieldExpr {
 pub enum UnaryOp {
     Not,
     Negate,
+    AddressOf,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

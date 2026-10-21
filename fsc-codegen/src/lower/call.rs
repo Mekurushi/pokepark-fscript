@@ -1,22 +1,35 @@
 use super::block::BlockLowerer;
 use crate::{CodegenError, CodegenResult, abi::PassMode};
 use fsb_ir::Instruction;
-use fsc_mir::{FunctionId, Operand, Place};
+use fsc_mir::{CallArgument, FunctionId, Operand, Place, Ty};
 
 impl BlockLowerer<'_, '_> {
     pub(super) fn lower_call(
         &mut self,
         destination: Option<&Place>,
         callee: FunctionId,
-        arguments: &[Operand],
+        arguments: &[CallArgument],
     ) -> CodegenResult<()> {
         for (index, argument) in arguments.iter().enumerate().rev() {
-            let mode = self
+            let parameter = &self
                 .function
                 .function_declaration(callee)?
-                .parameter_modes()[index];
+                .parameters()[index];
 
-            match mode {
+            let argument = match (&parameter.ty, argument) {
+                (Ty::Reference(_), CallArgument::Reference(place)) => {
+                    let place = self.function.resolve_place(place)?;
+                    self.lower_place_address(&place);
+                    continue;
+                }
+                (Ty::Reference(_), CallArgument::Value(_))
+                | (_, CallArgument::Reference(_)) => {
+                    unreachable!("type-checked call argument mismatch reached codegen")
+                }
+                (_, CallArgument::Value(argument)) => argument,
+            };
+
+            match parameter.mode {
                 PassMode::Direct => {
                     self.lower_scalar_operand(argument)?;
                 }

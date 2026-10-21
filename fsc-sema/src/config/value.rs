@@ -16,7 +16,7 @@ impl ConfigType {
             Ty::Float => Some(Self::Float),
             Ty::Bool => Some(Self::Bool),
             Ty::Str => Some(Self::String),
-            Ty::Void | Ty::Vec3 | Ty::Array { .. } => None,
+            Ty::Void | Ty::Vec3 | Ty::Array { .. } | Ty::Reference(_) => None,
         }
     }
 }

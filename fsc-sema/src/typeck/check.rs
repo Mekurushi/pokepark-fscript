@@ -264,7 +264,11 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
                         span: expression.span,
                     }));
                 };
-                Ok(ExprType::Value(body.locals[*local].ty.clone()))
+                let ty = match &body.locals[*local].ty {
+                    Ty::Reference(referent) => (**referent).clone(),
+                    ty => ty.clone(),
+                };
+                Ok(ExprType::Value(ty))
             }
             hir::ExprKind::ItemRef(item) => match &self.script.items[*item].kind {
                 hir::ItemKind::Function(_) => Ok(ExprType::Function(*item)),
@@ -281,6 +285,14 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
                     .map(ExprType::Value)
             }
             hir::ExprKind::Unary { op, expr } => {
+                if *op == hir::UnaryOp::AddressOf {
+                    let Some(body) = body else {
+                        return Err(self.emit_error(TypeckError::NotAssignable { span: expr.span }));
+                    };
+                    self.check_writable_place(body, expr)?;
+                    let referent = self.check_value_expression(Some(body), expr)?;
+                    return Ok(ExprType::Value(Ty::Reference(Box::new(referent))));
+                }
                 let operand = self.check_value_expression(body, expr)?;
                 self.check_unary(*op, &operand, expression.span)
                     .map(ExprType::Value)
@@ -362,6 +374,13 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             let actual = self.check_value_expression(body, argument);
             if index < SELECTOR_COUNT {
                 self.expect_type(actual, &Ty::Int, argument.span);
+            } else if let Ok(actual) = actual
+                && !rules::supports_raw_syscall_argument(&actual)
+            {
+                self.emit_error(TypeckError::UnsupportedRawSyscallArgument {
+                    actual,
+                    span: argument.span,
+                });
             }
         }
     }
@@ -400,6 +419,7 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
         let result = match op {
             hir::UnaryOp::Not if *operand == Ty::Bool => Some(Ty::Bool),
             hir::UnaryOp::Neg if rules::supports_negation(operand) => Some(operand.clone()),
+            hir::UnaryOp::AddressOf => unreachable!("address-of is checked as a place operation"),
             _ => None,
         };
         result.ok_or_else(|| {

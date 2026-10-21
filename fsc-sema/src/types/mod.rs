@@ -9,6 +9,7 @@ pub enum Ty {
     Float,
     Vec3,
     Array { element: Box<Ty>, length: usize },
+    Reference(Box<Ty>),
     Void,
     Bool,
     Str,
@@ -20,6 +21,9 @@ impl From<&fsc_parse::ast::Ty> for Ty {
             fsc_parse::ast::Ty::Int => Self::Int,
             fsc_parse::ast::Ty::Float => Self::Float,
             fsc_parse::ast::Ty::Vec3 => Self::Vec3,
+            fsc_parse::ast::Ty::Reference(referent) => {
+                Self::Reference(Box::new(Self::from(referent.as_ref())))
+            }
             fsc_parse::ast::Ty::Void => Self::Void,
             fsc_parse::ast::Ty::Bool => Self::Bool,
             fsc_parse::ast::Ty::Str => Self::Str,

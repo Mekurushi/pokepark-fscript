@@ -21,17 +21,23 @@ pub enum StatementKind {
     Call {
         destination: Option<Place>,
         callee: FunctionId,
-        arguments: Box<[Operand]>,
+        arguments: Box<[CallArgument]>,
     },
     RawSyscall {
         destination: Option<Place>,
         page: u8,
         function: u16,
-        arguments: Box<[Operand]>,
+        arguments: Box<[CallArgument]>,
     },
     Pause {
         duration: Operand,
     },
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum CallArgument {
+    Value(Operand),
+    Reference(Place),
 }
 
 #[derive(Debug, Clone, PartialEq)]

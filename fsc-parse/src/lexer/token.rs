@@ -126,6 +126,8 @@ pub enum TokenKind {
     // --- Logical operators ---
     #[token("&&")]
     AmpAmp,
+    #[token("&")]
+    Amp,
     #[token("||")]
     PipePipe,
     #[token("!")]
@@ -208,6 +210,7 @@ impl TokenKind {
             Self::Lt => "`<`",
             Self::Gt => "`>`",
             Self::AmpAmp => "`&&`",
+            Self::Amp => "`&`",
             Self::PipePipe => "`||`",
             Self::Bang => "`!`",
             Self::Eq => "`=`",

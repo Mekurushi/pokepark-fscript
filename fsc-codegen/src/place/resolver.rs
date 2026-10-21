@@ -29,6 +29,25 @@ pub(crate) struct ResolvedPlace {
 }
 
 impl ResolvedPlace {
+    pub(crate) fn project_deref(&self) -> CodegenResult<Self> {
+        let Ty::Reference(referent) = &self.ty else {
+            return Err(CodegenError::UnsupportedType(self.ty.clone()));
+        };
+        let StorageBase::Frame(base) = self.base else {
+            return Err(CodegenError::UnsupportedType(self.ty.clone()));
+        };
+        if self.static_offset != 0 || !self.indexed_offsets.is_empty() {
+            return Err(CodegenError::UnsupportedType(self.ty.clone()));
+        }
+
+        Ok(Self {
+            base: StorageBase::FramePointer(base),
+            static_offset: 0,
+            indexed_offsets: Box::default(),
+            ty: (**referent).clone(),
+        })
+    }
+
     pub(crate) fn project_field(&self, field: FieldIdx) -> CodegenResult<Self> {
         let fields =
             aggregate_fields(&self.ty).ok_or_else(|| CodegenError::InvalidFieldProjection {
@@ -147,6 +166,7 @@ impl<'layout, 'mir> PlaceResolver<'layout, 'mir> {
             .try_fold(
                 self.resolve_base(place.base)?,
                 |resolved, projection| match projection {
+                    ProjectionElem::Deref => resolved.project_deref(),
                     ProjectionElem::Field(field) => resolved.project_field(*field),
                     ProjectionElem::Index(index) => {
                         resolved.project_index(self.frame.base(*index)?)

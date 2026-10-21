@@ -120,5 +120,6 @@ const fn lower_unary_operator(operator: &ast::UnaryOp) -> hir::UnaryOp {
     match operator {
         ast::UnaryOp::Not => hir::UnaryOp::Not,
         ast::UnaryOp::Neg => hir::UnaryOp::Neg,
+        ast::UnaryOp::AddressOf => hir::UnaryOp::AddressOf,
     }
 }

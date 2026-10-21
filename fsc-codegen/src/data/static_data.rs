@@ -80,7 +80,7 @@ fn lower_value(
                 lower_value(static_id, field.ty(), field_value, words)?;
             }
         }
-        (Ty::Str | Ty::Void, _) => {
+        (Ty::Str | Ty::Reference(_) | Ty::Void, _) => {
             return Err(CodegenError::UnsupportedStaticType {
                 static_id,
                 ty: ty.clone(),

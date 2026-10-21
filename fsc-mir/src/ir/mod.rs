@@ -8,7 +8,9 @@ mod static_var;
 mod value;
 
 pub use body::{Body, LocalDecl, LocalKind};
-pub use control_flow::{BasicBlock, Statement, StatementKind, Terminator, TerminatorKind};
+pub use control_flow::{
+    BasicBlock, CallArgument, Statement, StatementKind, Terminator, TerminatorKind,
+};
 pub use debug::{DebugValue, VariableDebugInfo};
 pub use entity::{BasicBlockId, FunctionId, LocalId, RETURN_PLACE, START_BLOCK, StaticId};
 pub use function::{Function, FunctionKind, FunctionSignature, Linkage, Script};

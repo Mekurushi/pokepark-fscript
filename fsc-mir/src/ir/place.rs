@@ -35,6 +35,7 @@ pub enum PlaceBase {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProjectionElem {
+    Deref,
     Field(FieldIdx),
     Index(LocalId),
 }
