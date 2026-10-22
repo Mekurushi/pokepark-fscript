@@ -155,6 +155,10 @@ pub enum TokenKind {
     LBrace,
     #[token("}")]
     RBrace,
+    #[token("[")]
+    LBracket,
+    #[token("]")]
+    RBracket,
 }
 
 impl TokenKind {
@@ -221,6 +225,8 @@ impl TokenKind {
             Self::RParen => "`)`",
             Self::LBrace => "`{`",
             Self::RBrace => "`}`",
+            Self::LBracket => "`[`",
+            Self::RBracket => "`]`",
         }
     }
 }

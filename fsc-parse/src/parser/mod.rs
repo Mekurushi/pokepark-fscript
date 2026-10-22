@@ -237,7 +237,7 @@ impl Parser {
     }
 
     fn parse_decl_head(&mut self) -> ParseResult<DeclHead> {
-        let (ty, ty_span) = self.parse_type_keyword()?;
+        let (ty, ty_span) = self.parse_type()?;
         let (name, name_span) = self.ts.expect_ident()?;
         Ok(DeclHead {
             ty,
@@ -247,8 +247,18 @@ impl Parser {
         })
     }
 
-    fn parse_type_keyword(&mut self) -> ParseResult<(Ty, Span)> {
+    fn parse_type(&mut self) -> ParseResult<(Ty, Span)> {
         let start = self.ts.current_offset();
+        let element = self.parse_primitive_type()?;
+        let ty = if self.ts.peek() == Some(&TokenKind::LBracket) {
+            self.parse_array_type(element)?
+        } else {
+            element
+        };
+        Ok((ty, self.ts.span_consumed_from(start)))
+    }
+
+    fn parse_primitive_type(&mut self) -> ParseResult<Ty> {
         let ty = match self.ts.peek() {
             Some(TokenKind::KwInt) => Ty::Int,
             Some(TokenKind::KwFloat) => Ty::Float,
@@ -259,7 +269,33 @@ impl Parser {
             _ => return Err(self.ts.unexpected("type keyword")),
         };
         self.ts.advance();
-        Ok((ty, self.ts.span_consumed_from(start)))
+        Ok(ty)
+    }
+
+    fn parse_array_type(&mut self, element: Ty) -> ParseResult<Ty> {
+        self.ts.expect(&TokenKind::LBracket, "`[`")?;
+        let length = self.parse_array_length()?;
+        self.ts.expect(&TokenKind::RBracket, "`]`")?;
+
+        let element = if self.ts.peek() == Some(&TokenKind::LBracket) {
+            self.parse_array_type(element)?
+        } else {
+            element
+        };
+
+        Ok(Ty::Array {
+            element: Box::new(element),
+            length,
+        })
+    }
+
+    fn parse_array_length(&mut self) -> ParseResult<usize> {
+        let Some(TokenKind::IntLit(length)) = self.ts.peek() else {
+            return Err(self.ts.unexpected("array length"));
+        };
+        let length = *length as usize;
+        self.ts.advance();
+        Ok(length)
     }
 
     fn parse_param_list(&mut self) -> ParseResult<Vec<Param>> {
@@ -282,7 +318,7 @@ impl Parser {
 
     fn parse_param(&mut self) -> ParseResult<Param> {
         let start = self.ts.current_offset();
-        let (mut ty, _) = self.parse_type_keyword()?;
+        let (mut ty, _) = self.parse_type()?;
         if self.ts.eat(&TokenKind::Amp) {
             ty = Ty::Reference(Box::new(ty));
         }
@@ -446,7 +482,7 @@ impl Parser {
             Ok(Stmt::new(self.ids.alloc(), StmtKind::ExprStmt(call), span))
         } else {
             let target = Expr::new(self.ids.alloc(), ExprKind::Var(name), name_span);
-            let target = self.parse_member_suffix(target)?;
+            let target = self.parse_postfix_suffix(target)?;
             self.ts.expect(&TokenKind::Eq, "`=`")?;
             let expr = self.parse_expr(0)?;
             Ok(Stmt::new(
@@ -485,12 +521,13 @@ impl Parser {
             Some(TokenKind::StrLit(_)) => self.parse_string_literal(),
             Some(TokenKind::Ident(_)) => self.parse_identifier(),
             Some(TokenKind::LParen) => self.parse_group(),
+            Some(TokenKind::LBracket) => self.parse_array_literal(),
             Some(TokenKind::Bang | TokenKind::Minus | TokenKind::Amp) => self.parse_unary(),
             Some(TokenKind::KwSysCall) => self.parse_syscall(),
             _ => Err(self.ts.unexpected("expression")),
         }?;
 
-        lhs = self.parse_member_suffix(lhs)?;
+        lhs = self.parse_postfix_suffix(lhs)?;
 
         while let Some(tok) = self.ts.peek() {
             let Some((bp, op)) = binding_power(tok) else {
@@ -517,21 +554,59 @@ impl Parser {
         Ok(lhs)
     }
 
-    fn parse_member_suffix(&mut self, mut base: Expr) -> ParseResult<Expr> {
-        while self.ts.eat(&TokenKind::Dot) {
-            let (member, member_span) = self.ts.expect_ident()?;
-            let span = base.span.cover(member_span);
-            base = Expr::new(
-                self.ids.alloc(),
-                ExprKind::Member {
-                    base: Box::new(base),
-                    member,
-                    member_span,
-                },
-                span,
-            );
+    fn parse_postfix_suffix(&mut self, mut base: Expr) -> ParseResult<Expr> {
+        loop {
+            if self.ts.eat(&TokenKind::Dot) {
+                let (member, member_span) = self.ts.expect_ident()?;
+                let span = base.span.cover(member_span);
+                base = Expr::new(
+                    self.ids.alloc(),
+                    ExprKind::Member {
+                        base: Box::new(base),
+                        member,
+                        member_span,
+                    },
+                    span,
+                );
+            } else if self.ts.eat(&TokenKind::LBracket) {
+                let index = self.parse_expr(0)?;
+                self.ts.expect(&TokenKind::RBracket, "`]`")?;
+                let span = Span::new(base.span.start(), self.ts.previous_token_end());
+                base = Expr::new(
+                    self.ids.alloc(),
+                    ExprKind::Index {
+                        base: Box::new(base),
+                        index: Box::new(index),
+                    },
+                    span,
+                );
+            } else {
+                break;
+            }
         }
         Ok(base)
+    }
+
+    fn parse_array_literal(&mut self) -> ParseResult<Expr> {
+        let start = self.ts.current_offset();
+        self.ts.expect(&TokenKind::LBracket, "`[`")?;
+        let mut elements = Vec::new();
+
+        if !self.ts.eat(&TokenKind::RBracket) {
+            loop {
+                elements.push(self.parse_expr(0)?);
+                if self.ts.eat(&TokenKind::RBracket) {
+                    break;
+                }
+                self.ts.expect(&TokenKind::Comma, "`,`")?;
+            }
+        }
+
+        Ok(Expr::new(
+            self.ids.alloc(),
+            ExprKind::Array { elements },
+            self.ts.span_consumed_from(start),
+        ))
     }
     fn parse_syscall(&mut self) -> ParseResult<Expr> {
         let start = self.ts.current_offset();

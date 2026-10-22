@@ -8,6 +8,7 @@ pub enum Ty {
     Int,
     Float,
     Vec3, //TODO: aggregate assignment
+    Array { element: Box<Ty>, length: usize },
     Reference(Box<Ty>),
     Void,
     Bool,
@@ -57,6 +58,15 @@ pub enum ExprKind {
     StringLit(String),
 
     Var(String),
+
+    Array {
+        elements: Vec<Expr>,
+    },
+
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
+    },
 
     Member {
         base: Box<Expr>,
