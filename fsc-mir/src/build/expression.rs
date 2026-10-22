@@ -20,6 +20,10 @@ impl BodyBuilder<'_> {
                 let (base, field) = (*base, *field);
                 Operand::Place(self.lower_field_value(base, field))
             }
+            thir::ExprKind::Index { base, index } => {
+                let (base, index) = (*base, *index);
+                Operand::Place(self.lower_index_value(base, index))
+            }
             thir::ExprKind::Array { .. }
             | thir::ExprKind::Aggregate { .. }
             | thir::ExprKind::Unary { .. }
@@ -65,7 +69,8 @@ impl BodyBuilder<'_> {
             thir::ExprKind::Constant(_)
             | thir::ExprKind::Local(_)
             | thir::ExprKind::Deref { .. }
-            | thir::ExprKind::Field { .. } => Rvalue::Use(self.lower_operand(expression)),
+            | thir::ExprKind::Field { .. }
+            | thir::ExprKind::Index { .. } => Rvalue::Use(self.lower_operand(expression)),
             thir::ExprKind::Array { elements } => {
                 let elements = elements.clone();
                 Rvalue::Array {
@@ -220,11 +225,16 @@ impl BodyBuilder<'_> {
         CallArgument::Value(self.lower_argument(expression))
     }
 
-    pub(super) fn lower_place(&self, expression: thir::ExprId) -> Place {
+    pub(super) fn lower_place(&mut self, expression: thir::ExprId) -> Place {
         match &self.thir.expressions[expression].kind {
             thir::ExprKind::Local(local) => Place::from_local(self.mapped_local(*local)),
             thir::ExprKind::Deref { operand } => append_deref(self.lower_place(*operand)),
             thir::ExprKind::Field { base, field } => append_field(self.lower_place(*base), *field),
+            thir::ExprKind::Index { base, index } => {
+                let (base, index) = (*base, *index);
+                let base = self.lower_place(base);
+                self.append_index(base, index)
+            }
             _ => unreachable!("THIR place must be rooted in a local"),
         }
     }
@@ -248,6 +258,34 @@ impl BodyBuilder<'_> {
         };
 
         append_field(place, field)
+    }
+
+    fn lower_index_value(&mut self, base: thir::ExprId, index: thir::ExprId) -> Place {
+        let (base_ty, base_source) = {
+            let base_expression = &self.thir.expressions[base];
+            (base_expression.ty.clone(), base_expression.source)
+        };
+        let base = match self.lower_operand(base) {
+            Operand::Place(place) => place,
+            Operand::Constant(constant) => self.materialize(
+                Rvalue::Use(Operand::Constant(constant)),
+                &base_ty,
+                base_source,
+            ),
+        };
+
+        self.append_index(base, index)
+    }
+
+    fn append_index(&mut self, mut base: Place, index: thir::ExprId) -> Place {
+        let index_source = self.thir.expressions[index].source;
+        let index_local = self.allocate_temporary(&Ty::Int, index_source);
+        self.lower_expression_into(index, Place::from_local(index_local));
+
+        let mut projection = base.projection.into_vec();
+        projection.push(ProjectionElem::Index(index_local));
+        base.projection = projection.into_boxed_slice();
+        base
     }
 
     fn materialize(&mut self, value: Rvalue, ty: &Ty, source: thir::SourceInfo) -> Place {
