@@ -1,7 +1,7 @@
 pub(crate) mod error;
 use crate::ast::{
-    BinOp, ConfigDecl, ConstDecl, Expr, ExprKind, ExternFuncDecl, FuncDef, FunctionHeader, Item,
-    Param, Stmt, Ty, UnaryOp,
+    AggregateFieldInit, BinOp, ConfigDecl, ConstDecl, Expr, ExprKind, ExternFuncDecl, FuncDef,
+    FunctionHeader, Item, Param, Stmt, Ty, UnaryOp,
 };
 use crate::ast::{NodeId, StmtKind};
 use crate::lexer::token::{Token, TokenKind};
@@ -519,6 +519,7 @@ impl Parser {
             Some(TokenKind::FloatLit(_)) => self.parse_float_literal(),
             Some(TokenKind::BoolLit(_)) => self.parse_bool_literal(),
             Some(TokenKind::StrLit(_)) => self.parse_string_literal(),
+            Some(TokenKind::KwVec3) => self.parse_aggregate_literal(Ty::Vec3),
             Some(TokenKind::Ident(_)) => self.parse_identifier(),
             Some(TokenKind::LParen) => self.parse_group(),
             Some(TokenKind::LBracket) => self.parse_array_literal(),
@@ -608,6 +609,43 @@ impl Parser {
             self.ts.span_consumed_from(start),
         ))
     }
+
+    fn parse_aggregate_literal(&mut self, ty: Ty) -> ParseResult<Expr> {
+        let start = self.ts.current_offset();
+        self.ts.advance();
+        self.ts.expect(&TokenKind::LBrace, "`{`")?;
+
+        let mut fields = Vec::new();
+        if !self.ts.eat(&TokenKind::RBrace) {
+            loop {
+                fields.push(self.parse_aggregate_field()?);
+                if self.ts.eat(&TokenKind::RBrace) {
+                    break;
+                }
+                self.ts.expect(&TokenKind::Comma, "`,`")?;
+            }
+        }
+
+        Ok(Expr::new(
+            self.ids.alloc(),
+            ExprKind::Aggregate { ty, fields },
+            self.ts.span_consumed_from(start),
+        ))
+    }
+
+    fn parse_aggregate_field(&mut self) -> ParseResult<AggregateFieldInit> {
+        self.ts.expect(&TokenKind::Dot, "`.`")?;
+        let (name, name_span) = self.ts.expect_ident()?;
+        self.ts.expect(&TokenKind::Eq, "`=`")?;
+        let value = self.parse_expr(0)?;
+
+        Ok(AggregateFieldInit {
+            name,
+            name_span,
+            value,
+        })
+    }
+
     fn parse_syscall(&mut self) -> ParseResult<Expr> {
         let start = self.ts.current_offset();
         self.ts.expect(&TokenKind::KwSysCall, "`SysCall`")?;

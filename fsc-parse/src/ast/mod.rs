@@ -48,6 +48,13 @@ pub struct Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct AggregateFieldInit {
+    pub name: String,
+    pub name_span: Span,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     // TODO: resolve the signed, unsigned here cleanly; going with signed as default, until a
     // need for unsigned values comes up; since negation are separate tokens, this can't resolve
@@ -61,6 +68,11 @@ pub enum ExprKind {
 
     Array {
         elements: Vec<Expr>,
+    },
+
+    Aggregate {
+        ty: Ty,
+        fields: Vec<AggregateFieldInit>,
     },
 
     Index {
