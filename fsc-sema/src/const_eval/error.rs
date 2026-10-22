@@ -21,6 +21,11 @@ pub(super) enum ConstEvalError {
     DivisionByZero {
         span: Span,
     },
+    IndexOutOfBounds {
+        index: i32,
+        length: usize,
+        span: Span,
+    },
 }
 
 impl std::fmt::Display for ConstEvalError {
@@ -37,6 +42,10 @@ impl std::fmt::Display for ConstEvalError {
                 write!(formatter, "integer overflow while evaluating `{operation}`")
             }
             Self::DivisionByZero { .. } => formatter.write_str("division by zero"),
+            Self::IndexOutOfBounds { index, length, .. } => write!(
+                formatter,
+                "array index {index} is out of bounds for an array of length {length}"
+            ),
         }
     }
 }
@@ -75,6 +84,9 @@ impl From<ConstEvalError> for Diagnostic {
             )),
             ConstEvalError::DivisionByZero { span } => {
                 diagnostic.with_label(Label::primary(span, "the divisor evaluates to zero"))
+            }
+            ConstEvalError::IndexOutOfBounds { span, .. } => {
+                diagnostic.with_label(Label::primary(span, "out-of-bounds array access"))
             }
         }
     }

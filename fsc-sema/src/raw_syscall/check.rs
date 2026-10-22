@@ -91,6 +91,15 @@ impl Checker<'_> {
             hir::ExprKind::Member { base, .. } | hir::ExprKind::Unary { expr: base, .. } => {
                 self.check_expression(base);
             }
+            hir::ExprKind::Array { elements } => {
+                for element in elements {
+                    self.check_expression(element);
+                }
+            }
+            hir::ExprKind::Index { base, index } => {
+                self.check_expression(base);
+                self.check_expression(index);
+            }
             hir::ExprKind::Binary { lhs, rhs, .. } => {
                 self.check_expression(lhs);
                 self.check_expression(rhs);

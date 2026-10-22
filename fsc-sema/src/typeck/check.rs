@@ -210,7 +210,9 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
                     }))
                 }
             },
-            hir::ExprKind::Member { base, .. } => self.check_writable_place(body, base),
+            hir::ExprKind::Member { base, .. } | hir::ExprKind::Index { base, .. } => {
+                self.check_writable_place(body, base)
+            }
             hir::ExprKind::ItemRef(_) => Err(self.emit_error(TypeckError::ImmutableItem {
                 span: expression.span,
             })),
@@ -258,6 +260,22 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             hir::ExprKind::Float(_) => Ok(ExprType::Value(Ty::Float)),
             hir::ExprKind::Bool(_) => Ok(ExprType::Value(Ty::Bool)),
             hir::ExprKind::String(_) => Ok(ExprType::Value(Ty::Str)),
+            hir::ExprKind::Array { elements } => self
+                .check_array_literal(body, elements, expression.span)
+                .map(ExprType::Value),
+            hir::ExprKind::Index { base, index } => {
+                let base_type = self.check_value_expression(body, base);
+                let index_type = self.check_value_expression(body, index);
+                self.expect_type(index_type, &Ty::Int, index.span);
+
+                match base_type? {
+                    Ty::Array { element, .. } => Ok(ExprType::Value(*element)),
+                    actual => Err(self.emit_error(TypeckError::InvalidIndexBase {
+                        actual,
+                        span: base.span,
+                    })),
+                }
+            }
             hir::ExprKind::Local(local) => {
                 let Some(body) = body else {
                     return Err(self.emit_error(TypeckError::ExpectedValue {
@@ -315,6 +333,28 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
                 Ok(ExprType::Value(Ty::Int))
             }
         }
+    }
+
+    fn check_array_literal(
+        &mut self,
+        body: Option<&hir::Body>,
+        elements: &[hir::Expr],
+        span: Span,
+    ) -> Result<Ty, ErrorGuaranteed> {
+        let Some((first, remaining)) = elements.split_first() else {
+            return Err(self.emit_error(TypeckError::CannotInferArrayElementType { span }));
+        };
+
+        let element_type = self.check_value_expression(body, first)?;
+        for element in remaining {
+            let actual = self.check_value_expression(body, element);
+            self.expect_type(actual, &element_type, element.span);
+        }
+
+        Ok(Ty::Array {
+            element: Box::new(element_type),
+            length: elements.len(),
+        })
     }
 
     fn check_call(

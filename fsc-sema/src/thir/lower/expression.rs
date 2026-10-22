@@ -17,6 +17,16 @@ impl BodyLowerer<'_, '_> {
             hir::ExprKind::String(value) => {
                 thir::ExprKind::Constant(thir::ConstValue::String(value.clone()))
             }
+            hir::ExprKind::Array { elements } => thir::ExprKind::Array {
+                elements: elements
+                    .iter()
+                    .map(|element| self.lower_expression(element))
+                    .collect(),
+            },
+            hir::ExprKind::Index { base, index } => thir::ExprKind::Index {
+                base: self.lower_expression(base),
+                index: self.lower_expression(index),
+            },
             hir::ExprKind::Local(local) => {
                 let kind = self.lower_local(*local);
                 match &self.body.locals[*local].ty {
@@ -141,6 +151,9 @@ fn lower_constant(value: &ConstValue) -> thir::ConstValue {
         ConstValue::Float(value) => thir::ConstValue::Float(*value),
         ConstValue::Bool(value) => thir::ConstValue::Bool(*value),
         ConstValue::String(value) => thir::ConstValue::String(value.clone()),
+        ConstValue::Array(elements) => {
+            thir::ConstValue::Array(elements.iter().map(lower_constant).collect())
+        }
     }
 }
 

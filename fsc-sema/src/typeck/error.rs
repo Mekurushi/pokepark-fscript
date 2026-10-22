@@ -56,6 +56,13 @@ pub(super) enum TypeckError {
         actual: Ty,
         span: Span,
     },
+    CannotInferArrayElementType {
+        span: Span,
+    },
+    InvalidIndexBase {
+        actual: Ty,
+        span: Span,
+    },
     NotAssignable {
         span: Span,
     },
@@ -129,6 +136,12 @@ impl std::fmt::Display for TypeckError {
                 "cannot access a member of `{}`",
                 TypeName(actual)
             ),
+            Self::CannotInferArrayElementType { .. } => {
+                formatter.write_str("cannot infer the element type of an empty array")
+            }
+            Self::InvalidIndexBase { actual, .. } => {
+                write!(formatter, "cannot index into `{}`", TypeName(actual))
+            }
             Self::NotAssignable { .. } => formatter.write_str("expression is not assignable"),
             Self::ImmutableItem { .. } => formatter.write_str("cannot assign to an immutable item"),
             Self::ImmutableLocalConstant { .. } => {
@@ -160,6 +173,10 @@ impl From<TypeckError> for Diagnostic {
             | TypeckError::InvalidBinaryOperands { span, .. } => (*span, "invalid operand type"),
             TypeckError::UnknownMember { span, .. } => (*span, "unknown member"),
             TypeckError::InvalidMemberBase { span, .. } => (*span, "has no members"),
+            TypeckError::CannotInferArrayElementType { span } => {
+                (*span, "element type cannot be inferred")
+            }
+            TypeckError::InvalidIndexBase { span, .. } => (*span, "not an array"),
             TypeckError::NotAssignable { span } => (*span, "not an assignment target"),
             TypeckError::ImmutableItem { span } => (*span, "declared immutable"),
             TypeckError::ImmutableLocalConstant { span } => (*span, "declared constant"),

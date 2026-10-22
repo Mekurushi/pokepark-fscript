@@ -8,6 +8,7 @@ pub(crate) enum ConstValue {
     Float(f32),
     Bool(bool),
     String(String),
+    Array(Box<[ConstValue]>),
 }
 
 impl From<&ConfigValue> for ConstValue {

@@ -41,6 +41,13 @@ impl<'a> ExpressionLowerer<'a> {
             ast::ExprKind::FloatLit(value) => hir::ExprKind::Float(*value),
             ast::ExprKind::BoolLit(value) => hir::ExprKind::Bool(*value),
             ast::ExprKind::StringLit(value) => hir::ExprKind::String(value.clone()),
+            ast::ExprKind::Array { elements } => hir::ExprKind::Array {
+                elements: elements.iter().map(|element| self.lower(element)).collect(),
+            },
+            ast::ExprKind::Index { base, index } => hir::ExprKind::Index {
+                base: Box::new(self.lower(base)),
+                index: Box::new(self.lower(index)),
+            },
             ast::ExprKind::Var(name) => self.names.resolve(name).unwrap_or_else(|| {
                 hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
                     ResolveError::UndeclaredName {

@@ -21,6 +21,10 @@ impl From<&fsc_parse::ast::Ty> for Ty {
             fsc_parse::ast::Ty::Int => Self::Int,
             fsc_parse::ast::Ty::Float => Self::Float,
             fsc_parse::ast::Ty::Vec3 => Self::Vec3,
+            fsc_parse::ast::Ty::Array { element, length } => Self::Array {
+                element: Box::new(Self::from(element.as_ref())),
+                length: *length,
+            },
             fsc_parse::ast::Ty::Reference(referent) => {
                 Self::Reference(Box::new(Self::from(referent.as_ref())))
             }

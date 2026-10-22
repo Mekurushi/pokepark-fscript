@@ -40,6 +40,30 @@ impl<'context, 'analysis, 'diagnostics, 'locals>
             hir::ExprKind::Float(value) => Ok(ConstValue::Float(*value)),
             hir::ExprKind::Bool(value) => Ok(ConstValue::Bool(*value)),
             hir::ExprKind::String(value) => Ok(ConstValue::String(value.clone())),
+            hir::ExprKind::Array { elements } => elements
+                .iter()
+                .map(|element| self.evaluate(element))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|elements| ConstValue::Array(elements.into_boxed_slice())),
+            hir::ExprKind::Index { base, index } => {
+                let base = self.evaluate(base)?;
+                let index_span = index.span;
+                let index = self.evaluate(index)?;
+                let (ConstValue::Array(elements), ConstValue::Int(index)) = (base, index) else {
+                    unreachable!("ill-typed array index reached constant evaluation")
+                };
+                let length = elements.len();
+                usize::try_from(index)
+                    .ok()
+                    .and_then(|index| elements.get(index).cloned())
+                    .ok_or_else(|| {
+                        self.emit(ConstEvalError::IndexOutOfBounds {
+                            index,
+                            length,
+                            span: index_span,
+                        })
+                    })
+            }
             hir::ExprKind::ItemRef(item) => self.context.evaluate_item(*item, expression.span),
             hir::ExprKind::Local(local) => self.evaluate_local(*local, expression.span),
             hir::ExprKind::Member { .. } => Err(self.emit(ConstEvalError::NonConstantExpression {

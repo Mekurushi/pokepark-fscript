@@ -138,6 +138,15 @@ impl<'context, 'analysis, 'diagnostics> BodyEvaluator<'context, 'analysis, 'diag
             hir::ExprKind::Member { base, .. } | hir::ExprKind::Unary { expr: base, .. } => {
                 self.evaluate_required_expression(base);
             }
+            hir::ExprKind::Array { elements } => {
+                for element in elements {
+                    self.evaluate_required_expression(element);
+                }
+            }
+            hir::ExprKind::Index { base, index } => {
+                self.evaluate_required_expression(base);
+                self.evaluate_required_expression(index);
+            }
             hir::ExprKind::Binary { lhs, rhs, .. } => {
                 self.evaluate_required_expression(lhs);
                 self.evaluate_required_expression(rhs);

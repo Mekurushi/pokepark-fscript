@@ -47,6 +47,13 @@ pub enum ExprKind {
     String(String),
     Local(LocalId),
     ItemRef(ItemId),
+    Array {
+        elements: Vec<Expr>,
+    },
+    Index {
+        base: Box<Expr>,
+        index: Box<Expr>,
+    },
     Member {
         base: Box<Expr>,
         member: String,

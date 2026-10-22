@@ -87,6 +87,10 @@ pub enum ExprKind {
     Array {
         elements: Box<[ExprId]>,
     },
+    Index {
+        base: ExprId,
+        index: ExprId,
+    },
     Aggregate {
         fields: Box<[FieldExpr]>,
     },
