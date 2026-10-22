@@ -1,5 +1,6 @@
 use super::Ty;
 use cranelift_entity::entity_impl;
+use std::collections::HashMap;
 
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct FieldIdx(u32);
@@ -13,6 +14,16 @@ pub(crate) struct AggregateDef {
 impl AggregateDef {
     pub(crate) fn field(&self, name: &str) -> Option<&'static AggregateField> {
         self.fields.iter().find(|field| field.name() == name)
+    }
+
+    pub(crate) fn missing_fields<T>(
+        &self,
+        initialized: &HashMap<FieldIdx, T>,
+    ) -> Vec<&'static AggregateField> {
+        self.fields
+            .iter()
+            .filter(|field| !initialized.contains_key(&field.index()))
+            .collect()
     }
 }
 

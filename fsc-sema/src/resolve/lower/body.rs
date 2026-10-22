@@ -1,5 +1,5 @@
 use super::super::{declarations::Declarations, error::ResolveError};
-use super::expression::{ExprIdAllocator, ExpressionLowerer};
+use super::expression::{ExprFieldIdAllocator, ExprIdAllocator, ExpressionLowerer};
 use super::names::{LocalScopeStack, NameResolver};
 use crate::{hir, types::Ty};
 use cranelift_entity::PrimaryMap;
@@ -10,6 +10,7 @@ pub(super) struct BodyLowerer<'declarations, 'diagnostics> {
     declarations: &'declarations Declarations,
     diagnostics: &'diagnostics mut Diagnostics,
     expression_ids: &'diagnostics mut ExprIdAllocator,
+    expr_field_ids: &'diagnostics mut ExprFieldIdAllocator,
     locals: PrimaryMap<hir::LocalId, hir::Local>,
     scopes: LocalScopeStack,
 }
@@ -19,11 +20,13 @@ impl<'declarations, 'diagnostics> BodyLowerer<'declarations, 'diagnostics> {
         declarations: &'declarations Declarations,
         diagnostics: &'diagnostics mut Diagnostics,
         expression_ids: &'diagnostics mut ExprIdAllocator,
+        expr_field_ids: &'diagnostics mut ExprFieldIdAllocator,
     ) -> Self {
         Self {
             declarations,
             diagnostics,
             expression_ids,
+            expr_field_ids,
             locals: PrimaryMap::new(),
             scopes: LocalScopeStack::default(),
         }
@@ -139,6 +142,7 @@ impl<'declarations, 'diagnostics> BodyLowerer<'declarations, 'diagnostics> {
             NameResolver::function(self.declarations, &self.scopes),
             self.diagnostics,
             self.expression_ids,
+            self.expr_field_ids,
         )
         .lower(expression)
     }

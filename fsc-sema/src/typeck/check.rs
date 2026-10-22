@@ -4,6 +4,7 @@ use super::rules::{self, Compatibility, TypeContext};
 use crate::hir;
 use crate::types::{self, Ty};
 use fsc_diagnostics::{Diagnostic, Diagnostics, ErrorGuaranteed, Span};
+use std::collections::HashMap;
 
 pub(crate) fn check(script: &hir::Script, diagnostics: &mut Diagnostics) -> Option<TypeckResults> {
     let mut checker = TypeChecker::new(script, diagnostics);
@@ -263,6 +264,10 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             hir::ExprKind::Array { elements } => self
                 .check_array_literal(body, elements, expression.span)
                 .map(ExprType::Value),
+            hir::ExprKind::Aggregate { ty, fields } => {
+                self.check_aggregate_literal(body, ty, fields, expression.span);
+                Ok(ExprType::Value(ty.clone()))
+            }
             hir::ExprKind::Index { base, index } => {
                 let base_type = self.check_value_expression(body, base);
                 let index_type = self.check_value_expression(body, index);
@@ -355,6 +360,66 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             element: Box::new(element_type),
             length: elements.len(),
         })
+    }
+
+    fn check_aggregate_literal(
+        &mut self,
+        body: Option<&hir::Body>,
+        ty: &Ty,
+        fields: &[hir::ExprField],
+        span: Span,
+    ) {
+        let Some(definition) = types::aggregate_definition(ty) else {
+            self.emit_error(TypeckError::InvalidAggregateType {
+                actual: ty.clone(),
+                span,
+            });
+            for field in fields {
+                let _ = self.check_value_expression(body, &field.value);
+            }
+            return;
+        };
+
+        let mut initialized = HashMap::new();
+        let mut has_unknown_field = false;
+
+        for field in fields {
+            let Some(resolved) = definition.field(&field.name) else {
+                self.emit_error(TypeckError::UnknownAggregateField {
+                    field: field.name.clone(),
+                    aggregate: ty.clone(),
+                    span: field.name_span,
+                });
+                has_unknown_field = true;
+                let _ = self.check_value_expression(body, &field.value);
+                continue;
+            };
+
+            self.results.record_expr_field(field.id, resolved.index());
+            if let Some(original_span) = initialized.insert(resolved.index(), field.name_span) {
+                self.emit_error(TypeckError::DuplicateAggregateField {
+                    field: field.name.clone(),
+                    duplicate_span: field.name_span,
+                    original_span,
+                });
+            }
+
+            let actual = self.check_value_expression(body, &field.value);
+            self.expect_type(actual, resolved.ty(), field.value.span);
+        }
+
+        let missing = definition
+            .missing_fields(&initialized)
+            .into_iter()
+            .map(|field| field.name())
+            .collect::<Vec<_>>();
+        if !missing.is_empty() && !has_unknown_field {
+            self.emit_error(TypeckError::MissingAggregateFields {
+                aggregate: ty.clone(),
+                fields: missing,
+                span,
+            });
+        }
     }
 
     fn check_call(

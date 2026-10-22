@@ -1,7 +1,7 @@
 pub(crate) mod error;
 use crate::ast::{
-    AggregateFieldInit, BinOp, ConfigDecl, ConstDecl, Expr, ExprKind, ExternFuncDecl, FuncDef,
-    FunctionHeader, Item, Param, Stmt, Ty, UnaryOp,
+    BinOp, ConfigDecl, ConstDecl, Expr, ExprField, ExprKind, ExternFuncDecl, FuncDef, FunctionHeader,
+    Item, Param, Stmt, Ty, UnaryOp,
 };
 use crate::ast::{NodeId, StmtKind};
 use crate::lexer::token::{Token, TokenKind};
@@ -633,13 +633,13 @@ impl Parser {
         ))
     }
 
-    fn parse_aggregate_field(&mut self) -> ParseResult<AggregateFieldInit> {
+    fn parse_aggregate_field(&mut self) -> ParseResult<ExprField> {
         self.ts.expect(&TokenKind::Dot, "`.`")?;
         let (name, name_span) = self.ts.expect_ident()?;
         self.ts.expect(&TokenKind::Eq, "`=`")?;
         let value = self.parse_expr(0)?;
 
-        Ok(AggregateFieldInit {
+        Ok(ExprField {
             name,
             name_span,
             value,

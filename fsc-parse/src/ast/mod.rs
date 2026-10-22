@@ -48,7 +48,7 @@ pub struct Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct AggregateFieldInit {
+pub struct ExprField {
     pub name: String,
     pub name_span: Span,
     pub value: Expr,
@@ -72,7 +72,7 @@ pub enum ExprKind {
 
     Aggregate {
         ty: Ty,
-        fields: Vec<AggregateFieldInit>,
+        fields: Vec<ExprField>,
     },
 
     Index {

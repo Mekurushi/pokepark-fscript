@@ -4,6 +4,8 @@ use super::expression::{ExpressionEvaluator, LocalValues};
 use super::{ConstEvalResults, ConstValue};
 use crate::config::BoundConfigs;
 use crate::hir;
+use crate::typeck::TypeckResults;
+use crate::types::FieldIdx;
 use cranelift_entity::SecondaryMap;
 use fsc_diagnostics::{Diagnostic, Diagnostics, ErrorGuaranteed, Span};
 
@@ -16,6 +18,7 @@ enum EvaluationState {
 #[derive(Debug)]
 pub(super) struct EvaluationContext<'analysis, 'diagnostics> {
     script: &'analysis hir::Script,
+    typeck: &'analysis TypeckResults,
     configs: &'analysis BoundConfigs,
     states: SecondaryMap<hir::ItemId, Option<EvaluationState>>,
     stack: Vec<hir::ItemId>,
@@ -27,11 +30,13 @@ pub(super) struct EvaluationContext<'analysis, 'diagnostics> {
 impl<'analysis, 'diagnostics> EvaluationContext<'analysis, 'diagnostics> {
     fn new(
         script: &'analysis hir::Script,
+        typeck: &'analysis TypeckResults,
         configs: &'analysis BoundConfigs,
         diagnostics: &'diagnostics mut Diagnostics,
     ) -> Self {
         Self {
             script,
+            typeck,
             configs,
             states: SecondaryMap::new(),
             stack: Vec::new(),
@@ -44,10 +49,11 @@ impl<'analysis, 'diagnostics> EvaluationContext<'analysis, 'diagnostics> {
 
 pub(crate) fn evaluate(
     script: &hir::Script,
+    typeck: &TypeckResults,
     configs: &BoundConfigs,
     diagnostics: &mut Diagnostics,
 ) -> Option<ConstEvalResults> {
-    let mut context = EvaluationContext::new(script, configs, diagnostics);
+    let mut context = EvaluationContext::new(script, typeck, configs, diagnostics);
     for (item, declaration) in &script.items {
         if matches!(declaration.kind, hir::ItemKind::Constant(_))
             && context.evaluate_item(item, declaration.name_span).is_err()
@@ -131,6 +137,10 @@ impl EvaluationContext<'_, '_> {
 
     pub(super) fn record_expression(&mut self, expression: hir::ExprId, value: ConstValue) {
         self.results.record_expression(expression, value);
+    }
+
+    pub(super) fn expr_field_index(&self, field: hir::ExprFieldId) -> Option<FieldIdx> {
+        self.typeck.expr_field_index(field)
     }
 
     pub(super) fn mark_failed(&mut self) {

@@ -9,7 +9,7 @@ use fsc_diagnostics::{Diagnostic, Diagnostics};
 use fsc_parse::ast;
 
 use super::body::BodyLowerer;
-use super::expression::{ExprIdAllocator, ExpressionLowerer};
+use super::expression::{ExprFieldIdAllocator, ExprIdAllocator, ExpressionLowerer};
 use super::names::NameResolver;
 
 pub(in crate::resolve) fn lower_script(
@@ -24,6 +24,7 @@ struct LoweringContext<'declarations, 'diagnostics> {
     declarations: &'declarations Declarations,
     diagnostics: &'diagnostics mut Diagnostics,
     expression_ids: ExprIdAllocator,
+    expr_field_ids: ExprFieldIdAllocator,
 }
 
 impl<'declarations, 'diagnostics> LoweringContext<'declarations, 'diagnostics> {
@@ -35,6 +36,7 @@ impl<'declarations, 'diagnostics> LoweringContext<'declarations, 'diagnostics> {
             declarations,
             diagnostics,
             expression_ids: ExprIdAllocator::default(),
+            expr_field_ids: ExprFieldIdAllocator::default(),
         }
     }
 
@@ -61,6 +63,7 @@ impl<'declarations, 'diagnostics> LoweringContext<'declarations, 'diagnostics> {
                             self.declarations,
                             self.diagnostics,
                             &mut self.expression_ids,
+                            &mut self.expr_field_ids,
                         )
                         .lower(&function.header.params, &function.body),
                     },
@@ -84,6 +87,7 @@ impl<'declarations, 'diagnostics> LoweringContext<'declarations, 'diagnostics> {
                         NameResolver::global(self.declarations),
                         self.diagnostics,
                         &mut self.expression_ids,
+                        &mut self.expr_field_ids,
                     )
                     .lower(&constant.initializer),
                 }),

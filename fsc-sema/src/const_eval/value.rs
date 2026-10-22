@@ -1,7 +1,5 @@
 use crate::ConfigValue;
 
-// TODO: adding vec3 support with proper typing and passing typeck results in for FieldIdx
-// resolution
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum ConstValue {
     Int(i32),
@@ -9,6 +7,7 @@ pub(crate) enum ConstValue {
     Bool(bool),
     String(String),
     Array(Box<[ConstValue]>),
+    Aggregate(Box<[ConstValue]>),
 }
 
 impl From<&ConfigValue> for ConstValue {

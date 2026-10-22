@@ -96,6 +96,11 @@ impl Checker<'_> {
                     self.check_expression(element);
                 }
             }
+            hir::ExprKind::Aggregate { fields, .. } => {
+                for field in fields {
+                    self.check_expression(&field.value);
+                }
+            }
             hir::ExprKind::Index { base, index } => {
                 self.check_expression(base);
                 self.check_expression(index);

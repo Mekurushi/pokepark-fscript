@@ -4,6 +4,7 @@ use super::context::EvaluationContext;
 use super::error::ConstEvalError;
 use super::operation;
 use crate::hir;
+use cranelift_entity::EntityRef;
 use fsc_diagnostics::{ErrorGuaranteed, Span};
 
 #[derive(Clone, Copy)]
@@ -45,6 +46,7 @@ impl<'context, 'analysis, 'diagnostics, 'locals>
                 .map(|element| self.evaluate(element))
                 .collect::<Result<Vec<_>, _>>()
                 .map(|elements| ConstValue::Array(elements.into_boxed_slice())),
+            hir::ExprKind::Aggregate { fields, .. } => self.evaluate_aggregate(fields),
             hir::ExprKind::Index { base, index } => {
                 let base = self.evaluate(base)?;
                 let index_span = index.span;
@@ -86,6 +88,37 @@ impl<'context, 'analysis, 'diagnostics, 'locals>
                 }))
             }
         }
+    }
+
+    fn evaluate_aggregate(
+        &mut self,
+        fields: &[hir::ExprField],
+    ) -> Result<ConstValue, ErrorGuaranteed> {
+        let mut values = vec![None; fields.len()];
+
+        for field in fields {
+            let value = self.evaluate(&field.value)?;
+            let Some(index) = self.context.expr_field_index(field.id) else {
+                unreachable!("unresolved field reached aggregate constant evaluation")
+            };
+            let Some(destination) = values.get_mut(index.index()) else {
+                unreachable!("invalid field index reached aggregate constant evaluation")
+            };
+            debug_assert!(destination.is_none());
+            *destination = Some(value);
+        }
+
+        Ok(ConstValue::Aggregate(
+            values
+                .into_iter()
+                .map(|value| {
+                    let Some(value) = value else {
+                        unreachable!("missing field reached aggregate constant evaluation")
+                    };
+                    value
+                })
+                .collect(),
+        ))
     }
 
     fn evaluate_binary(&mut self, expression: &hir::Expr) -> Result<ConstValue, ErrorGuaranteed> {

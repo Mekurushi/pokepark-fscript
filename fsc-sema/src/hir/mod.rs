@@ -1,8 +1,10 @@
 mod body;
 mod entity;
 
-pub use body::{BinaryOp, Block, Body, Expr, ExprKind, Local, LocalKind, Stmt, StmtKind, UnaryOp};
-pub use entity::{ExprId, ItemId, LocalId};
+pub use body::{
+    BinaryOp, Block, Body, Expr, ExprField, ExprKind, Local, LocalKind, Stmt, StmtKind, UnaryOp,
+};
+pub use entity::{ExprFieldId, ExprId, ItemId, LocalId};
 
 use crate::types::Ty;
 use cranelift_entity::PrimaryMap;

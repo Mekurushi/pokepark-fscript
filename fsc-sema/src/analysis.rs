@@ -57,7 +57,7 @@ pub(crate) fn analyze(
         return Err(diagnostics);
     }
 
-    let Some(const_eval) = const_eval::evaluate(&hir, &configs, &mut diagnostics) else {
+    let Some(const_eval) = const_eval::evaluate(&hir, &typeck, &configs, &mut diagnostics) else {
         return Err(diagnostics);
     };
     let Some(raw_syscalls) = raw_syscall::check(&hir, &const_eval, &mut diagnostics) else {

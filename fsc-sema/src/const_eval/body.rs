@@ -143,6 +143,11 @@ impl<'context, 'analysis, 'diagnostics> BodyEvaluator<'context, 'analysis, 'diag
                     self.evaluate_required_expression(element);
                 }
             }
+            hir::ExprKind::Aggregate { fields, .. } => {
+                for field in fields {
+                    self.evaluate_required_expression(&field.value);
+                }
+            }
             hir::ExprKind::Index { base, index } => {
                 self.evaluate_required_expression(base);
                 self.evaluate_required_expression(index);

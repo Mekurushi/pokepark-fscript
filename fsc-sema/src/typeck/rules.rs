@@ -51,10 +51,9 @@ pub(super) fn type_allowed(ty: &Ty, context: TypeContext) -> bool {
             Ty::Array { element, .. } => valid_array_element_type(element),
             _ => *ty != Ty::Void && !matches!(ty, Ty::Reference(_)),
         },
-        // TODO: add vec3 constants with proper end-to-end support (aggregates etc.)
         TypeContext::Constant => match ty {
             Ty::Array { element, .. } => valid_array_constant_element_type(element),
-            _ => *ty != Ty::Void && *ty != Ty::Vec3 && !matches!(ty, Ty::Reference(_)),
+            _ => *ty != Ty::Void && !matches!(ty, Ty::Reference(_)),
         },
         TypeContext::Config => matches!(ty, Ty::Int | Ty::Float | Ty::Bool | Ty::Str),
         TypeContext::Return => supports_return(ty),
@@ -72,9 +71,8 @@ fn valid_array_element_type(ty: &Ty) -> bool {
 fn valid_array_constant_element_type(ty: &Ty) -> bool {
     match ty {
         Ty::Array { element, .. } => valid_array_constant_element_type(element),
-        Ty::Int | Ty::Float | Ty::Bool | Ty::Str => true,
-        Ty::Vec3 | Ty::Reference(_) | Ty::Void => false, // TODO: update vec3 with vec3 constant
-                                                         // support
+        Ty::Int | Ty::Float | Ty::Vec3 | Ty::Bool | Ty::Str => true,
+        Ty::Reference(_) | Ty::Void => false,
     }
 }
 

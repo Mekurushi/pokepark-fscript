@@ -1,7 +1,9 @@
-use super::{ExprId, ItemId, LocalId};
+use super::{ExprFieldId, ExprId, ItemId, LocalId};
 use crate::types::Ty;
 use cranelift_entity::PrimaryMap;
 use fsc_diagnostics::{ErrorGuaranteed, Span};
+
+//TODO: probably migrating to generic HirId
 
 #[derive(Debug)]
 pub struct Body {
@@ -39,6 +41,14 @@ pub struct Expr {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct ExprField {
+    pub id: ExprFieldId,
+    pub name: String,
+    pub name_span: Span,
+    pub value: Expr,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     Error(ErrorGuaranteed),
     Int(i32),
@@ -49,6 +59,10 @@ pub enum ExprKind {
     ItemRef(ItemId),
     Array {
         elements: Vec<Expr>,
+    },
+    Aggregate {
+        ty: Ty,
+        fields: Vec<ExprField>,
     },
     Index {
         base: Box<Expr>,

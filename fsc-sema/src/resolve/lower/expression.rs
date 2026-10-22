@@ -16,10 +16,22 @@ impl ExprIdAllocator {
     }
 }
 
+#[derive(Debug, Default)]
+pub(super) struct ExprFieldIdAllocator {
+    allocated: PrimaryMap<hir::ExprFieldId, ()>,
+}
+
+impl ExprFieldIdAllocator {
+    fn allocate(&mut self) -> hir::ExprFieldId {
+        self.allocated.push(())
+    }
+}
+
 pub(super) struct ExpressionLowerer<'a> {
     names: NameResolver<'a>,
     diagnostics: &'a mut Diagnostics,
     expression_ids: &'a mut ExprIdAllocator,
+    expr_field_ids: &'a mut ExprFieldIdAllocator,
 }
 
 impl<'a> ExpressionLowerer<'a> {
@@ -27,11 +39,13 @@ impl<'a> ExpressionLowerer<'a> {
         names: NameResolver<'a>,
         diagnostics: &'a mut Diagnostics,
         expression_ids: &'a mut ExprIdAllocator,
+        expr_field_ids: &'a mut ExprFieldIdAllocator,
     ) -> Self {
         Self {
             names,
             diagnostics,
             expression_ids,
+            expr_field_ids,
         }
     }
 
@@ -43,6 +57,18 @@ impl<'a> ExpressionLowerer<'a> {
             ast::ExprKind::StringLit(value) => hir::ExprKind::String(value.clone()),
             ast::ExprKind::Array { elements } => hir::ExprKind::Array {
                 elements: elements.iter().map(|element| self.lower(element)).collect(),
+            },
+            ast::ExprKind::Aggregate { ty, fields } => hir::ExprKind::Aggregate {
+                ty: crate::types::Ty::from(ty),
+                fields: fields
+                    .iter()
+                    .map(|field| hir::ExprField {
+                        id: self.expr_field_ids.allocate(),
+                        name: field.name.clone(),
+                        name_span: field.name_span,
+                        value: self.lower(&field.value),
+                    })
+                    .collect(),
             },
             ast::ExprKind::Index { base, index } => hir::ExprKind::Index {
                 base: Box::new(self.lower(base)),

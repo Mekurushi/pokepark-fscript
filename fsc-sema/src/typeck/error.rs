@@ -59,6 +59,25 @@ pub(super) enum TypeckError {
     CannotInferArrayElementType {
         span: Span,
     },
+    InvalidAggregateType {
+        actual: Ty,
+        span: Span,
+    },
+    UnknownAggregateField {
+        field: String,
+        aggregate: Ty,
+        span: Span,
+    },
+    DuplicateAggregateField {
+        field: String,
+        duplicate_span: Span,
+        original_span: Span,
+    },
+    MissingAggregateFields {
+        aggregate: Ty,
+        fields: Vec<&'static str>,
+        span: Span,
+    },
     InvalidIndexBase {
         actual: Ty,
         span: Span,
@@ -139,6 +158,30 @@ impl std::fmt::Display for TypeckError {
             Self::CannotInferArrayElementType { .. } => {
                 formatter.write_str("cannot infer the element type of an empty array")
             }
+            Self::InvalidAggregateType { actual, .. } => write!(
+                formatter,
+                "cannot construct `{}` with an aggregate literal",
+                TypeName(actual)
+            ),
+            Self::UnknownAggregateField {
+                field, aggregate, ..
+            } => write!(
+                formatter,
+                "`{}` has no field named `{field}`",
+                TypeName(aggregate)
+            ),
+            Self::DuplicateAggregateField { field, .. } => {
+                write!(formatter, "field `{field}` is initialized more than once")
+            }
+            Self::MissingAggregateFields {
+                aggregate, fields, ..
+            } => write!(
+                formatter,
+                "missing field{} {} in initializer of `{}`",
+                if fields.len() == 1 { "" } else { "s" },
+                FieldList(fields),
+                TypeName(aggregate)
+            ),
             Self::InvalidIndexBase { actual, .. } => {
                 write!(formatter, "cannot index into `{}`", TypeName(actual))
             }
@@ -176,6 +219,20 @@ impl From<TypeckError> for Diagnostic {
             TypeckError::CannotInferArrayElementType { span } => {
                 (*span, "element type cannot be inferred")
             }
+            TypeckError::InvalidAggregateType { span, .. } => (*span, "not an aggregate type"),
+            TypeckError::UnknownAggregateField { span, .. } => (*span, "unknown field"),
+            TypeckError::DuplicateAggregateField {
+                duplicate_span,
+                original_span,
+                ..
+            } => {
+                return diagnostic
+                    .with_label(Label::primary(*duplicate_span, "initialized again here"))
+                    .with_label(Label::secondary(*original_span, "first initialized here"));
+            }
+            TypeckError::MissingAggregateFields { span, .. } => {
+                (*span, "missing field initializer")
+            }
             TypeckError::InvalidIndexBase { span, .. } => (*span, "not an array"),
             TypeckError::NotAssignable { span } => (*span, "not an assignment target"),
             TypeckError::ImmutableItem { span } => (*span, "declared immutable"),
@@ -186,6 +243,24 @@ impl From<TypeckError> for Diagnostic {
 }
 
 struct TypeName<'a>(&'a Ty);
+
+struct FieldList<'a>(&'a [&'static str]);
+
+impl std::fmt::Display for FieldList<'_> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (index, field) in self.0.iter().enumerate() {
+            if index > 0 {
+                formatter.write_str(if index + 1 == self.0.len() {
+                    " and "
+                } else {
+                    ", "
+                })?;
+            }
+            write!(formatter, "`{field}`")?;
+        }
+        Ok(())
+    }
+}
 
 impl std::fmt::Display for TypeName<'_> {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

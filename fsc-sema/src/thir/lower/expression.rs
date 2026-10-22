@@ -23,6 +23,20 @@ impl BodyLowerer<'_, '_> {
                     .map(|element| self.lower_expression(element))
                     .collect(),
             },
+            hir::ExprKind::Aggregate { fields, .. } => thir::ExprKind::Aggregate {
+                fields: fields
+                    .iter()
+                    .map(|field| {
+                        let Some(index) = self.context.typeck.expr_field_index(field.id) else {
+                            unreachable!("unresolved aggregate field reached THIR lowering")
+                        };
+                        thir::FieldExpr {
+                            field: index,
+                            value: self.lower_expression(&field.value),
+                        }
+                    })
+                    .collect(),
+            },
             hir::ExprKind::Index { base, index } => thir::ExprKind::Index {
                 base: self.lower_expression(base),
                 index: self.lower_expression(index),
@@ -153,6 +167,9 @@ fn lower_constant(value: &ConstValue) -> thir::ConstValue {
         ConstValue::String(value) => thir::ConstValue::String(value.clone()),
         ConstValue::Array(elements) => {
             thir::ConstValue::Array(elements.iter().map(lower_constant).collect())
+        }
+        ConstValue::Aggregate(fields) => {
+            thir::ConstValue::Aggregate(fields.iter().map(lower_constant).collect())
         }
     }
 }

@@ -15,6 +15,7 @@ pub(crate) type ExprTypeResult = Result<ExprType, ErrorGuaranteed>;
 pub(crate) struct TypeckResults {
     expression_types: SecondaryMap<hir::ExprId, Option<ExprType>>,
     field_indices: SecondaryMap<hir::ExprId, Option<FieldIdx>>,
+    expr_field_indices: SecondaryMap<hir::ExprFieldId, Option<FieldIdx>>,
 }
 
 impl TypeckResults {
@@ -26,6 +27,10 @@ impl TypeckResults {
 
     pub(crate) fn field_index(&self, expression: hir::ExprId) -> Option<FieldIdx> {
         self.field_indices.get(expression).and_then(|field| *field)
+    }
+
+    pub(crate) fn expr_field_index(&self, field: hir::ExprFieldId) -> Option<FieldIdx> {
+        self.expr_field_indices.get(field).and_then(|field| *field)
     }
 
     pub(super) fn record_expression(&mut self, id: hir::ExprId, expression_type: ExprType) {
@@ -41,6 +46,16 @@ impl TypeckResults {
         debug_assert!(
             previous.flatten().is_none(),
             "field for {expression:?} was recorded more than once"
+        );
+    }
+
+    pub(super) fn record_expr_field(&mut self, expression_field: hir::ExprFieldId, field: FieldIdx) {
+        let previous = self
+            .expr_field_indices
+            .insert(expression_field, Some(field));
+        debug_assert!(
+            previous.flatten().is_none(),
+            "field for {expression_field:?} was recorded more than once"
         );
     }
 }
