@@ -14,7 +14,8 @@ impl BlockLowerer<'_, '_> {
             let parameter = &self
                 .function
                 .function_declaration(callee)?
-                .parameters()[index];
+                .abi()
+                .parameters[index];
 
             let argument = match (&parameter.ty, argument) {
                 (Ty::Reference(_), CallArgument::Reference(place)) => {
@@ -30,6 +31,9 @@ impl BlockLowerer<'_, '_> {
             };
 
             match parameter.mode {
+                PassMode::Ignore => {
+                    unreachable!("ignored parameter reached call lowering")
+                }
                 PassMode::Direct => {
                     self.lower_scalar_operand(argument)?;
                 }

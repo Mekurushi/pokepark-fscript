@@ -1,19 +1,16 @@
-use crate::{
-    CodegenError, CodegenResult,
-    abi::ParameterAbi,
-};
+use crate::{CodegenError, CodegenResult, abi::FunctionAbi};
 use cranelift_entity::PrimaryMap;
 use fsb_ir::{ExternalFunction, FunctionId as FsbFunctionId, FunctionRef, Program};
 use fsc_mir::{FunctionId, FunctionKind, Linkage, Script};
 
 pub(super) struct FunctionDeclaration {
     reference: FunctionRef,
-    parameters: Box<[ParameterAbi]>,
+    abi: FunctionAbi,
 }
 
 impl FunctionDeclaration {
-    pub(super) const fn parameters(&self) -> &[ParameterAbi] {
-        &self.parameters
+    pub(super) const fn abi(&self) -> &FunctionAbi {
+        &self.abi
     }
 }
 
@@ -34,22 +31,10 @@ impl FunctionMapping {
                     FunctionRef::External(ExternalFunction::new(&function.name))
                 }
             };
-            let parameters = function
-                .signature
-                .parameters
-                .iter()
-                .map(|ty| {
-                    ParameterAbi::from_type(ty).unwrap_or_else(|| {
-                        unreachable!(
-                            "unsupported parameter type reached codegen declaration \
-                        lowering"
-                        )
-                    })
-                })
-                .collect();
+            let abi = FunctionAbi::from_signature(&function.signature);
             let declared = declarations.push(FunctionDeclaration {
                 reference,
-                parameters,
+                abi,
             });
             debug_assert_eq!(source, declared);
         }

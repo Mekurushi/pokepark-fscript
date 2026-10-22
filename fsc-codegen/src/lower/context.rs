@@ -61,7 +61,7 @@ impl<'mir> ScriptLowerer<'mir> {
             if let FunctionKind::Defined { body, .. } = &self.mir.functions[function].kind {
                 let target = self.declarations.functions.defined_function(function)?;
                 let declaration = self.declarations.functions.declaration(function)?;
-                let frame = FrameLayout::plan(body, declaration.parameters())?;
+                let frame = FrameLayout::plan(body, &declaration.abi().parameters)?;
                 let output = self.declarations.program.function_mut(target);
                 lower_function(body, frame, &codegen, output)?;
             }

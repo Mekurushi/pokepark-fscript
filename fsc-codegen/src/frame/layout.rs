@@ -1,6 +1,6 @@
 use crate::{
     CodegenError, CodegenResult,
-    abi::{ParameterAbi, PassMode},
+    abi::{PassMode, ValueAbi},
 };
 use cranelift_entity::SecondaryMap;
 use fsc_mir::{aggregate_fields, Body, LocalId, LocalKind, Ty, RETURN_PLACE};
@@ -64,7 +64,7 @@ pub(crate) struct FrameLayout {
 }
 
 impl FrameLayout {
-    pub(crate) fn plan(body: &Body, parameters: &[ParameterAbi]) -> CodegenResult<Self> {
+    pub(crate) fn plan(body: &Body, parameters: &[ValueAbi]) -> CodegenResult<Self> {
         debug_assert_eq!(body.argument_count, parameters.len());
         let mut allocations = SecondaryMap::new();
         let mut parameter_slots = SlotCount::ZERO;
