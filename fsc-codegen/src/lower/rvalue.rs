@@ -26,7 +26,7 @@ impl BlockLowerer<'_, '_> {
                 self.lower_store_word(target)
             }
             Rvalue::Array { elements } => self.lower_array_into(elements, target),
-            Rvalue::Aggregate { ty: _ty, fields } => self.lower_aggregate_into(fields, target),
+            Rvalue::Aggregate { ty, fields } => self.lower_aggregate_into(ty, fields, target),
         }
     }
 
@@ -92,6 +92,18 @@ impl BlockLowerer<'_, '_> {
 
     fn lower_aggregate_into(
         &mut self,
+        ty: &Ty,
+        fields: &[FieldOperand],
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        match ty {
+            Ty::Vec3 => self.lower_vec3_into(fields, target),
+            _ => self.lower_aggregate_fields_into(fields, target),
+        }
+    }
+
+    fn lower_aggregate_fields_into(
+        &mut self,
         fields: &[FieldOperand],
         target: &ResolvedPlace,
     ) -> CodegenResult<()> {
@@ -99,6 +111,35 @@ impl BlockLowerer<'_, '_> {
             let target = target.project_field(field.field)?;
             self.lower_operand_into(&field.value, &target)?;
         }
+        Ok(())
+    }
+
+    fn lower_vec3_into(
+        &mut self,
+        fields: &[FieldOperand],
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        const PAGE: u8 = 3;
+        const FUNCTION: u16 = 2;
+
+        let definitions = aggregate_fields(&Ty::Vec3)
+            .unwrap_or_else(|| unreachable!("vec3 must have an aggregate definition"));
+
+        for definition in definitions.iter().rev() {
+            let field = fields
+                .iter()
+                .find(|field| field.field == definition.index())
+                .unwrap_or_else(|| unreachable!("MIR vec3 aggregate must initialize every field"));
+            let kind = self.lower_scalar_operand(&field.value)?;
+            debug_assert_eq!(kind, ScalarKind::Float, "vec3 fields must be floats");
+        }
+
+        self.lower_place_address(target);
+        self.output.push_instruction(Instruction::Syscall {
+            argument_count: 4,
+            page: PAGE,
+            function: FUNCTION,
+        });
         Ok(())
     }
 
