@@ -57,7 +57,13 @@ fn is_stack_scalar(ty: &Ty) -> bool {
 fn is_supported_use(kind: LocalUseKind) -> bool {
     matches!(
         kind,
-        LocalUseKind::Value(ValueUseKind::Rvalue | ValueUseKind::Pause | ValueUseKind::Branch)
+        LocalUseKind::Value(
+            ValueUseKind::Rvalue
+                | ValueUseKind::CallArgument
+                | ValueUseKind::RawSyscallArgument
+                | ValueUseKind::Pause
+                | ValueUseKind::Branch
+        )
     )
 }
 

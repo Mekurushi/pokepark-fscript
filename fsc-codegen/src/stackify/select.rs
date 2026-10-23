@@ -3,7 +3,9 @@ use super::{
     location::{ConsumerLocation, StatementLocation},
     plan::{StackificationPlan, StackifiedValue},
 };
-use fsc_mir::{Body, LocalId, Operand, Place, PlaceBase, Rvalue, StatementKind, TerminatorKind};
+use fsc_mir::{
+    Body, CallArgument, LocalId, Operand, Place, PlaceBase, Rvalue, StatementKind, TerminatorKind,
+};
 
 pub(super) fn select(body: &Body, candidates: &Candidates) -> StackificationPlan {
     Selector {
@@ -37,7 +39,10 @@ impl Selector<'_> {
                     StatementKind::Pause { duration } => {
                         self.select_operand(duration, consumer, &mut cursor);
                     }
-                    StatementKind::Call { .. } | StatementKind::RawSyscall { .. } => {}
+                    StatementKind::Call { arguments, .. }
+                    | StatementKind::RawSyscall { arguments, .. } => {
+                        self.select_call_arguments(arguments, consumer, &mut cursor);
+                    }
                 }
             }
 
@@ -49,6 +54,20 @@ impl Selector<'_> {
         }
 
         self.plan
+    }
+
+    fn select_call_arguments(
+        &mut self,
+        arguments: &[CallArgument],
+        consumer: ConsumerLocation,
+        cursor: &mut usize,
+    ) {
+        for argument in arguments.iter().rev() {
+            let CallArgument::Value(operand) = argument else {
+                break;
+            };
+            self.select_operand(operand, consumer, cursor);
+        }
     }
 
     fn select_rvalue(&mut self, value: &Rvalue, consumer: ConsumerLocation, cursor: &mut usize) {
