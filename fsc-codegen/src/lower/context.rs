@@ -3,7 +3,7 @@ use super::{
     function::lower as lower_function,
     function_mapping::{FunctionDeclaration, FunctionMapping},
 };
-use crate::{CodegenResult, data::StaticData, frame::FrameLayout};
+use crate::{CodegenResult, data::StaticData, frame::FrameLayout, stackify};
 use fsc_mir::{FunctionKind, Script};
 
 pub(super) struct CodegenContext<'declarations> {
@@ -61,9 +61,11 @@ impl<'mir> ScriptLowerer<'mir> {
             if let FunctionKind::Defined { body, .. } = &self.mir.functions[function].kind {
                 let target = self.declarations.functions.defined_function(function)?;
                 let declaration = self.declarations.functions.declaration(function)?;
-                let frame = FrameLayout::plan(body, &declaration.abi().parameters)?;
+                let stackification = stackify::analyze(body);
+                let frame =
+                    FrameLayout::plan(body, &declaration.abi().parameters, &stackification)?;
                 let output = self.declarations.program.function_mut(target);
-                lower_function(body, frame, &codegen, output)?;
+                lower_function(body, frame, stackification, &codegen, output)?;
             }
         }
 

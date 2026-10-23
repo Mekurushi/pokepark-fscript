@@ -1,9 +1,10 @@
 use crate::{
     CodegenError, CodegenResult,
     abi::{PassMode, ValueAbi},
+    stackify::StackificationPlan,
 };
 use cranelift_entity::SecondaryMap;
-use fsc_mir::{aggregate_fields, Body, LocalId, LocalKind, Ty, RETURN_PLACE};
+use fsc_mir::{Body, LocalId, LocalKind, RETURN_PLACE, Ty, aggregate_fields};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct FrameSlot(i16);
@@ -64,13 +65,21 @@ pub(crate) struct FrameLayout {
 }
 
 impl FrameLayout {
-    pub(crate) fn plan(body: &Body, parameters: &[ValueAbi]) -> CodegenResult<Self> {
+    pub(crate) fn plan(
+        body: &Body,
+        parameters: &[ValueAbi],
+        stackification: &StackificationPlan,
+    ) -> CodegenResult<Self> {
         debug_assert_eq!(body.argument_count, parameters.len());
         let mut allocations = SecondaryMap::new();
         let mut parameter_slots = SlotCount::ZERO;
         let mut local_slots = SlotCount::ZERO;
 
         for (local, declaration) in &body.locals {
+            if stackification.is_stackified(local) {
+                continue;
+            }
+
             if local == RETURN_PLACE && declaration.ty == Ty::Void {
                 continue;
             }

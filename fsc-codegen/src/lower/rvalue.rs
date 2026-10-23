@@ -12,40 +12,61 @@ impl BlockLowerer<'_, '_> {
         target: &ResolvedPlace,
     ) -> CodegenResult<()> {
         match value {
+            Rvalue::Use(operand @ Operand::Place(source)) => {
+                let function = self.function;
+                if let Some(value) = function.stackified_rvalue(source) {
+                    self.lower_scalar_rvalue_to_stack(value)?;
+                    return self.lower_store_word(target);
+                }
+                self.lower_operand_into(operand, target)
+            }
             Rvalue::Use(operand) => self.lower_operand_into(operand, target),
-            Rvalue::Unary { op, operand } => self.lower_unary_into(*op, operand, target),
-            Rvalue::Binary { op, lhs, rhs } => self.lower_binary_into(*op, lhs, rhs, target),
+            Rvalue::Unary { .. } | Rvalue::Binary { .. } => {
+                self.lower_scalar_rvalue_to_stack(value)?;
+                self.lower_store_word(target)
+            }
             Rvalue::Array { elements } => self.lower_array_into(elements, target),
             Rvalue::Aggregate { ty: _ty, fields } => self.lower_aggregate_into(fields, target),
         }
     }
 
-    fn lower_unary_into(
+    pub(super) fn lower_scalar_rvalue_to_stack(
         &mut self,
-        op: UnaryOp,
-        operand: &Operand,
-        target: &ResolvedPlace,
-    ) -> CodegenResult<()> {
-        let operand = self.lower_scalar_operand(operand)?;
-        self.output
-            .push_instruction(lower_unary_instruction(op, operand));
-        self.lower_store_word(target)
-    }
+        value: &Rvalue,
+    ) -> CodegenResult<ScalarKind> {
+        match value {
+            Rvalue::Use(operand) => self.lower_scalar_operand(operand),
+            Rvalue::Unary { op, operand } => {
+                let operand = self.lower_scalar_operand(operand)?;
+                self.output
+                    .push_instruction(lower_unary_instruction(*op, operand));
+                Ok(operand)
+            }
+            Rvalue::Binary { op, lhs, rhs } => {
+                let lhs = self.lower_scalar_operand(lhs)?;
+                let rhs = self.lower_scalar_operand(rhs)?;
+                debug_assert_eq!(lhs, rhs, "MIR binary operands must have the same type");
 
-    fn lower_binary_into(
-        &mut self,
-        op: BinaryOp,
-        lhs: &Operand,
-        rhs: &Operand,
-        target: &ResolvedPlace,
-    ) -> CodegenResult<()> {
-        let lhs = self.lower_scalar_operand(lhs)?;
-        let rhs = self.lower_scalar_operand(rhs)?;
-        debug_assert_eq!(lhs, rhs, "MIR binary operands must have the same type");
+                self.output
+                    .push_instruction(lower_binary_instruction(*op, lhs));
 
-        self.output
-            .push_instruction(lower_binary_instruction(op, lhs));
-        self.lower_store_word(target)
+                let result = match op {
+                    BinaryOp::Add | BinaryOp::Subtract | BinaryOp::Multiply | BinaryOp::Divide => {
+                        lhs
+                    }
+                    BinaryOp::Equal
+                    | BinaryOp::NotEqual
+                    | BinaryOp::Less
+                    | BinaryOp::Greater
+                    | BinaryOp::LessEqual
+                    | BinaryOp::GreaterEqual => ScalarKind::Bool,
+                };
+                Ok(result)
+            }
+            Rvalue::Array { .. } | Rvalue::Aggregate { .. } => {
+                unreachable!("aggregate MIR rvalue reached scalar lowering")
+            }
+        }
     }
 
     fn lower_array_into(

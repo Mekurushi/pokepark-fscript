@@ -4,6 +4,8 @@ mod error;
 mod frame;
 mod lower;
 mod place;
+#[allow(dead_code)]
+mod stackify;
 
 pub use error::{CodegenError, CodegenResult};
 

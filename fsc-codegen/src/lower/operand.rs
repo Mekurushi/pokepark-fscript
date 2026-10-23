@@ -20,6 +20,11 @@ impl BlockLowerer<'_, '_> {
     pub(super) fn lower_scalar_operand(&mut self, operand: &Operand) -> CodegenResult<ScalarKind> {
         match operand {
             Operand::Place(place) => {
+                let function = self.function;
+                if let Some(value) = function.stackified_rvalue(place) {
+                    return self.lower_scalar_rvalue_to_stack(value);
+                }
+
                 let place = self.function.resolve_place(place)?;
                 let kind = scalar_kind(&place.ty);
                 self.lower_load_word(&place)?;
