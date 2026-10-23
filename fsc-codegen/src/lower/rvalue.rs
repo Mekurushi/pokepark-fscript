@@ -143,6 +143,31 @@ impl BlockLowerer<'_, '_> {
         Ok(())
     }
 
+    fn copy_vec3_into(
+        &mut self,
+        source: &ResolvedPlace,
+        target: &ResolvedPlace,
+    ) -> CodegenResult<()> {
+        const PAGE: u8 = 3;
+        const FUNCTION: u16 = 2;
+
+        let definitions = aggregate_fields(&Ty::Vec3)
+            .unwrap_or_else(|| unreachable!("vec3 must have an aggregate definition"));
+
+        for definition in definitions.iter().rev() {
+            let source = source.project_field(definition.index())?;
+            self.lower_load_word(&source)?;
+        }
+
+        self.lower_place_address(target);
+        self.output.push_instruction(Instruction::Syscall {
+            argument_count: 4,
+            page: PAGE,
+            function: FUNCTION,
+        });
+        Ok(())
+    }
+
     fn lower_operand_into(
         &mut self,
         operand: &Operand,
@@ -163,16 +188,7 @@ impl BlockLowerer<'_, '_> {
                 self.lower_load_word(source)?;
                 self.lower_store_word(target)
             }
-            Ty::Vec3 => {
-                let fields = aggregate_fields(&source.ty)
-                    .ok_or_else(|| CodegenError::UnsupportedType(source.ty.clone()))?;
-                for field in fields {
-                    let source = source.project_field(field.index())?;
-                    let target = target.project_field(field.index())?;
-                    self.copy_place(&source, &target)?;
-                }
-                Ok(())
-            }
+            Ty::Vec3 => self.copy_vec3_into(source, target),
             Ty::Array { length, .. } => {
                 for index in 0..*length {
                     let source = source.project_constant_index(index)?;
