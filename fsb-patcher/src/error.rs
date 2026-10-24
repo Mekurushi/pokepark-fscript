@@ -10,6 +10,10 @@ pub enum PatchFailure {
         function_name: String,
         address: u32,
     },
+    InvalidDataAddress {
+        data_name: String,
+        address: u32,
+    },
     ConflictingExternalSymbol {
         function_name: String,
         embedded_offset: u32,
@@ -17,6 +21,9 @@ pub enum PatchFailure {
     },
     MissingExternalSymbol {
         function_name: String,
+    },
+    MissingExternalDataSymbol {
+        data_name: String,
     },
 }
 
@@ -35,6 +42,9 @@ impl std::fmt::Display for PatchFailure {
                 f,
                 "function '{function_name}' has invalid address {address:#x}"
             ),
+            Self::InvalidDataAddress { data_name, address } => {
+                write!(f, "data '{data_name}' has invalid address {address:#x}")
+            }
             Self::ConflictingExternalSymbol {
                 function_name,
                 embedded_offset,
@@ -47,6 +57,10 @@ impl std::fmt::Display for PatchFailure {
                 f,
                 "external function '{function_name}' is missing from the symbol table"
             ),
+            Self::MissingExternalDataSymbol { data_name } => write!(
+                f,
+                "external data '{data_name}' is missing from the symbol table"
+            ),
         }
     }
 }
@@ -58,8 +72,10 @@ impl std::error::Error for PatchFailure {
             Self::Assembly(error) => Some(error),
             Self::InvalidPatchSource(_)
             | Self::InvalidFunctionAddress { .. }
+            | Self::InvalidDataAddress { .. }
             | Self::ConflictingExternalSymbol { .. }
-            | Self::MissingExternalSymbol { .. } => None,
+            | Self::MissingExternalSymbol { .. }
+            | Self::MissingExternalDataSymbol { .. } => None,
         }
     }
 }

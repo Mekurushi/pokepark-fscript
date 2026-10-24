@@ -7,6 +7,8 @@ use std::collections::BTreeMap;
 pub struct ExternalSymbolTable {
     base_address: u32,
     functions: BTreeMap<String, u32>,
+    #[serde(default)]
+    data: BTreeMap<String, u32>,
 }
 
 impl ExternalSymbolTable {
@@ -14,6 +16,7 @@ impl ExternalSymbolTable {
         Self {
             base_address,
             functions: BTreeMap::new(),
+            data: BTreeMap::new(),
         }
     }
 
@@ -35,12 +38,26 @@ impl ExternalSymbolTable {
             .map(|(name, address)| (name.as_str(), *address))
     }
 
+    pub fn insert_data(&mut self, name: String, address: u32) -> Option<u32> {
+        self.data.insert(name, address)
+    }
+
+    pub fn get_data(&self, name: &str) -> Option<u32> {
+        self.data.get(name).copied()
+    }
+
+    pub fn data(&self) -> impl Iterator<Item = (&str, u32)> {
+        self.data
+            .iter()
+            .map(|(name, address)| (name.as_str(), *address))
+    }
+
     pub fn len(&self) -> usize {
-        self.functions.len()
+        self.functions.len() + self.data.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.functions.is_empty()
+        self.functions.is_empty() && self.data.is_empty()
     }
 }
 

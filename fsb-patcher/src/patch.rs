@@ -22,6 +22,7 @@ struct PatchPlan {
     replacements: Vec<PlannedReplacement>,
     exports: Vec<PlannedExport>,
     external_functions: ExternalFunctionOffsets,
+    external_data: ExternalDataOffsets,
     output_symbols: ExternalSymbolTable,
 }
 
@@ -40,6 +41,7 @@ struct AssembledPatch {
     replacements: Vec<AssembledReplacement>,
     exports: Vec<AssembledExport>,
     external_functions: ExternalFunctionOffsets,
+    external_data: ExternalDataOffsets,
     output_symbols: ExternalSymbolTable,
 }
 
@@ -57,6 +59,7 @@ struct LinkedProgram {
     script_name: String,
     unit: AssemblyUnit,
     external_functions: ExternalFunctionOffsets,
+    external_data: ExternalDataOffsets,
     output_symbols: ExternalSymbolTable,
 }
 
@@ -88,6 +91,31 @@ fn function_entry_offset(
     Ok(entry_offset)
 }
 
+fn data_offset(
+    data_name: &str,
+    address: u32,
+    base_address: u32,
+    code_len: usize,
+) -> Result<u32, PatchFailure> {
+    let invalid_address = || PatchFailure::InvalidDataAddress {
+        data_name: data_name.to_owned(),
+        address,
+    };
+    let file_offset = address
+        .checked_sub(base_address)
+        .ok_or_else(invalid_address)?;
+    let offset = file_offset
+        .checked_sub(CODE_SECTION_FILE_OFFSET)
+        .ok_or_else(invalid_address)?;
+    let index = offset as usize;
+
+    if !offset.is_multiple_of(4) || index.checked_add(4).is_none_or(|end| end > code_len) {
+        return Err(invalid_address());
+    }
+
+    Ok(offset)
+}
+
 fn validate_external_declarations(
     script: &Script,
     symbols: &ExternalSymbolTable,
@@ -109,6 +137,26 @@ fn validate_external_declarations(
             symbols.base_address(),
             code_len,
         )?;
+    }
+
+    for declaration in script.items.iter().filter_map(|item| match item {
+        Item::StaticDecl(declaration)
+            if matches!(declaration.kind, fsc_parse::ast::StaticKind::External) =>
+        {
+            Some(declaration)
+        }
+        Item::FuncDef(_)
+        | Item::ExternFuncDecl(_)
+        | Item::StaticDecl(_)
+        | Item::ConstDecl(_)
+        | Item::ConfigDecl(_) => None,
+    }) {
+        let address = symbols.get_data(&declaration.name).ok_or_else(|| {
+            PatchFailure::MissingExternalDataSymbol {
+                data_name: declaration.name.clone(),
+            }
+        })?;
+        data_offset(&declaration.name, address, symbols.base_address(), code_len)?;
     }
 
     Ok(())
@@ -203,6 +251,7 @@ fn plan_patch(
     validate_external_declarations(&compiled.syntax, symbols, original.code_len)?;
     let external_functions =
         build_external_function_offsets(&original.unit, symbols, original.code_len)?;
+    let external_data = build_external_data_offsets(symbols, original.code_len)?;
     let mut replacements = Vec::new();
     let mut exports = Vec::new();
 
@@ -229,6 +278,7 @@ fn plan_patch(
         replacements,
         exports,
         external_functions,
+        external_data,
         output_symbols: symbols.clone(),
     })
 }
@@ -269,6 +319,7 @@ fn assemble_patch(program: &Program, plan: PatchPlan) -> Result<AssembledPatch, 
         replacements,
         exports,
         external_functions: plan.external_functions,
+        external_data: plan.external_data,
         output_symbols: plan.output_symbols,
     })
 }
@@ -297,6 +348,7 @@ fn link_patch(
         script_name: original.script_name,
         unit: original.unit,
         external_functions: assembled.external_functions,
+        external_data: assembled.external_data,
         output_symbols,
     })
 }
@@ -307,7 +359,7 @@ fn finalize_patch(linked: LinkedProgram) -> Result<PatchArtifact, PatchFailure> 
         .into_binary_with_externals(
             linked.script_name,
             &linked.external_functions,
-            &ExternalDataOffsets::new(),
+            &linked.external_data,
         )?
         .serialize()?;
 
@@ -315,6 +367,20 @@ fn finalize_patch(linked: LinkedProgram) -> Result<PatchArtifact, PatchFailure> 
         binary,
         symbols: linked.output_symbols,
     })
+}
+
+fn build_external_data_offsets(
+    symbols: &ExternalSymbolTable,
+    code_len: usize,
+) -> Result<ExternalDataOffsets, PatchFailure> {
+    let mut external_data = ExternalDataOffsets::new();
+
+    for (name, address) in symbols.data() {
+        let offset = data_offset(name, address, symbols.base_address(), code_len)?;
+        external_data.define(name, offset)?;
+    }
+
+    Ok(external_data)
 }
 
 fn build_external_function_offsets(
