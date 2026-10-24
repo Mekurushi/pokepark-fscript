@@ -1,3 +1,4 @@
+use super::super::builtin::{Builtin, BuiltinContext};
 use super::super::{declarations::Declarations, error::ResolveError};
 use super::expression::{ExprFieldIdAllocator, ExprIdAllocator, ExpressionLowerer};
 use super::names::{LocalScopeStack, NameResolver};
@@ -101,12 +102,7 @@ impl<'declarations, 'diagnostics> BodyLowerer<'declarations, 'diagnostics> {
                 target: self.lower_expression(target),
                 value: self.lower_expression(expr),
             },
-            ast::StmtKind::ExprStmt(expression) => {
-                hir::StmtKind::Expression(self.lower_expression(expression))
-            }
-            ast::StmtKind::Pause(expression) => {
-                hir::StmtKind::Pause(self.lower_expression(expression))
-            }
+            ast::StmtKind::ExprStmt(expression) => self.lower_expression_statement(expression),
             ast::StmtKind::If {
                 cond,
                 then_body,
@@ -145,6 +141,42 @@ impl<'declarations, 'diagnostics> BodyLowerer<'declarations, 'diagnostics> {
             self.expr_field_ids,
         )
         .lower(expression)
+    }
+
+    fn lower_expression_statement(&mut self, expression: &ast::Expr) -> hir::StmtKind {
+        let ast::ExprKind::BuiltinCall { name, args, .. } = &expression.kind else {
+            return hir::StmtKind::Expression(self.lower_expression(expression));
+        };
+
+        let Some(builtin) = Builtin::resolve(name) else {
+            return hir::StmtKind::Expression(self.lower_expression(expression));
+        };
+        if !builtin.supports_context(BuiltinContext::Statement) {
+            return hir::StmtKind::Expression(hir::Expr {
+                id: self.expression_ids.allocate(),
+                kind: hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
+                    ResolveError::InvalidBuiltinContext {
+                        name: builtin.name(),
+                        context: BuiltinContext::Statement,
+                        invocation_span: expression.span,
+                    },
+                ))),
+                span: expression.span,
+            });
+        }
+
+        if let Err(error) = builtin.validate_argument_count(args.len(), expression.span) {
+            return hir::StmtKind::Expression(hir::Expr {
+                id: self.expression_ids.allocate(),
+                kind: hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(error))),
+                span: expression.span,
+            });
+        }
+
+        match builtin {
+            Builtin::Pause => hir::StmtKind::Pause(self.lower_expression(&args[0])),
+            Builtin::Syscall => hir::StmtKind::Expression(self.lower_expression(expression)),
+        }
     }
 
     fn declare_local(

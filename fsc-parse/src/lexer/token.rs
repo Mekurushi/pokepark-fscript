@@ -59,13 +59,6 @@ pub enum TokenKind {
     #[token("config", priority = 10)]
     KwConfig,
 
-    // --- misc ---
-    #[token("SysCall", priority = 10)]
-    KwSysCall,
-
-    #[token("Pause", priority = 10)]
-    KwPause,
-
     // --- boolean literals ---
     #[token("true",  priority = 10, callback = |_| true)]
     #[token("false", priority = 10, callback = |_| false)]
@@ -148,6 +141,8 @@ pub enum TokenKind {
 
     #[token(".")]
     Dot,
+    #[token("@")]
+    At,
 
     // --- Delimiters ---
     #[token("(")]
@@ -199,8 +194,6 @@ impl TokenKind {
             Self::KwStatic => "`static`",
             Self::KwConst => "`const`",
             Self::KwConfig => "`config`",
-            Self::KwSysCall => "`SysCall`",
-            Self::KwPause => "`Pause`",
             Self::BoolLit(_) => "`boolean literal`",
             Self::IntLit(_) => "`integer literal`",
             Self::FloatLit(_) => "`float literal`",
@@ -225,6 +218,7 @@ impl TokenKind {
             Self::Comma => "`,`",
             Self::Semicolon => "`;`",
             Self::Dot => "`.`",
+            Self::At => "`@`",
             Self::LParen => "`(`",
             Self::RParen => "`)`",
             Self::LBrace => "`{`",

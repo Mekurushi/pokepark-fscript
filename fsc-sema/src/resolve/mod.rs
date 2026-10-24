@@ -1,3 +1,4 @@
+mod builtin;
 mod declarations;
 mod error;
 mod lower;

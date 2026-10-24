@@ -391,29 +391,15 @@ impl Parser {
                 ))
             }
             Some(TokenKind::Ident(_)) => self.parse_assign_or_expr_stmt(),
-            Some(TokenKind::KwSysCall) => {
-                let expr = self.parse_syscall()?;
+            Some(TokenKind::At) => {
+                let expr = self.parse_expr(0)?;
                 let span = expr.span;
                 Ok(Stmt::new(self.ids.alloc(), StmtKind::ExprStmt(expr), span))
             }
-            Some(TokenKind::KwPause) => self.parse_pause(),
             Some(TokenKind::KwConst) => self.parse_local_const_decl(),
             Some(token) if token.is_variable_type_keyword() => self.parse_var_decl(),
             _ => Err(self.ts.unexpected("statement")),
         }
-    }
-
-    fn parse_pause(&mut self) -> ParseResult<Stmt> {
-        let start = self.ts.current_offset();
-        self.ts.expect(&TokenKind::KwPause, "`Pause`")?;
-        self.ts.expect(&TokenKind::LParen, "`(`")?;
-        let expr = self.parse_expr(0)?;
-        self.ts.expect(&TokenKind::RParen, "`)`")?;
-        Ok(Stmt::new(
-            self.ids.alloc(),
-            StmtKind::Pause(expr),
-            self.ts.span_consumed_from(start),
-        ))
     }
 
     fn parse_if(&mut self) -> ParseResult<Stmt> {
@@ -552,10 +538,10 @@ impl Parser {
             Some(TokenKind::StrLit(_)) => self.parse_string_literal(),
             Some(TokenKind::KwVec3) => self.parse_aggregate_literal(Ty::Vec3),
             Some(TokenKind::Ident(_)) => self.parse_identifier(),
+            Some(TokenKind::At) => self.parse_builtin_invocation(),
             Some(TokenKind::LParen) => self.parse_group(),
             Some(TokenKind::LBracket) => self.parse_array_literal(),
             Some(TokenKind::Bang | TokenKind::Minus | TokenKind::Amp) => self.parse_unary(),
-            Some(TokenKind::KwSysCall) => self.parse_syscall(),
             _ => Err(self.ts.unexpected("expression")),
         }?;
 
@@ -677,13 +663,18 @@ impl Parser {
         })
     }
 
-    fn parse_syscall(&mut self) -> ParseResult<Expr> {
+    fn parse_builtin_invocation(&mut self) -> ParseResult<Expr> {
         let start = self.ts.current_offset();
-        self.ts.expect(&TokenKind::KwSysCall, "`SysCall`")?;
+        self.ts.expect(&TokenKind::At, "`@`")?;
+        let (name, name_span) = self.ts.expect_ident()?;
         let args = self.parse_arg_list()?;
         Ok(Expr::new(
             self.ids.alloc(),
-            ExprKind::SysCall { args },
+            ExprKind::BuiltinCall {
+                name,
+                name_span,
+                args,
+            },
             self.ts.span_consumed_from(start),
         ))
     }

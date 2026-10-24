@@ -100,7 +100,9 @@ pub enum ExprKind {
         callee_span: Span,
         args: Vec<Expr>,
     },
-    SysCall {
+    BuiltinCall {
+        name: String,
+        name_span: Span,
         args: Vec<Expr>,
     },
 }
@@ -134,7 +136,6 @@ pub enum StmtKind {
         expr: Expr,
     },
     ExprStmt(Expr),
-    Pause(Expr),
     If {
         cond: Expr,
         then_body: Vec<Stmt>,

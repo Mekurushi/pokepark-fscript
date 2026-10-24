@@ -1,3 +1,4 @@
+use super::super::builtin::{Builtin, BuiltinContext};
 use super::super::error::ResolveError;
 use super::names::NameResolver;
 use crate::hir;
@@ -11,7 +12,7 @@ pub(super) struct ExprIdAllocator {
 }
 
 impl ExprIdAllocator {
-    fn allocate(&mut self) -> hir::ExprId {
+    pub(super) fn allocate(&mut self) -> hir::ExprId {
         self.allocated.push(())
     }
 }
@@ -119,15 +120,60 @@ impl<'a> ExpressionLowerer<'a> {
                 }),
                 arguments: args.iter().map(|argument| self.lower(argument)).collect(),
             },
-            ast::ExprKind::SysCall { args } => hir::ExprKind::RawSyscall {
-                arguments: args.iter().map(|argument| self.lower(argument)).collect(),
-            },
+            ast::ExprKind::BuiltinCall {
+                name,
+                name_span,
+                args,
+            } => self.lower_builtin(name, *name_span, args, source.span),
         };
 
         hir::Expr {
             id: self.expression_ids.allocate(),
             kind,
             span: source.span,
+        }
+    }
+
+    fn lower_builtin(
+        &mut self,
+        name: &str,
+        name_span: fsc_diagnostics::Span,
+        arguments: &[ast::Expr],
+        invocation_span: fsc_diagnostics::Span,
+    ) -> hir::ExprKind {
+        let lowered_arguments = arguments
+            .iter()
+            .map(|argument| self.lower(argument))
+            .collect::<Vec<_>>();
+
+        let Some(builtin) = Builtin::resolve(name) else {
+            return hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
+                ResolveError::UnknownBuiltin {
+                    name: name.to_owned(),
+                    name_span,
+                },
+            )));
+        };
+
+        if let Err(error) = builtin.validate_argument_count(arguments.len(), invocation_span) {
+            return hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(error)));
+        }
+
+        if !builtin.supports_context(BuiltinContext::Value) {
+            return hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
+                ResolveError::InvalidBuiltinContext {
+                    name: builtin.name(),
+                    context: BuiltinContext::Value,
+                    invocation_span,
+                },
+            )));
+        }
+
+        match builtin {
+            Builtin::Syscall => hir::ExprKind::RawSyscall {
+                arguments: lowered_arguments,
+            },
+            Builtin::Pause => unreachable!("statement builtin reached value lowering"),
         }
     }
 }
