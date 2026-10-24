@@ -141,11 +141,6 @@ impl<'a> ExpressionLowerer<'a> {
         arguments: &[ast::Expr],
         invocation_span: fsc_diagnostics::Span,
     ) -> hir::ExprKind {
-        let lowered_arguments = arguments
-            .iter()
-            .map(|argument| self.lower(argument))
-            .collect::<Vec<_>>();
-
         let Some(builtin) = Builtin::resolve(name) else {
             return hir::ExprKind::Error(self.diagnostics.emit_error(Diagnostic::from(
                 ResolveError::UnknownBuiltin {
@@ -168,6 +163,11 @@ impl<'a> ExpressionLowerer<'a> {
                 },
             )));
         }
+
+        let lowered_arguments = arguments
+            .iter()
+            .map(|argument| self.lower(argument))
+            .collect::<Vec<_>>();
 
         match builtin {
             Builtin::Syscall => hir::ExprKind::RawSyscall {
