@@ -1,7 +1,7 @@
 use crate::{CodegenError, CodegenResult};
 use cranelift_entity::SecondaryMap;
-use fsb_ir::{DataRef, Program, Word};
-use fsc_mir::{ConstValue, Script, StaticId, Ty, aggregate_fields};
+use fsb_ir::{DataRef, ExternalData, Program, Word};
+use fsc_mir::{ConstValue, Script, StaticId, StaticKind, Ty, aggregate_fields};
 
 pub(crate) struct StaticData {
     declarations: SecondaryMap<StaticId, Option<DeclaredStatic>>,
@@ -18,18 +18,19 @@ impl StaticData {
         let mut declarations = SecondaryMap::new();
 
         for (static_id, declaration) in &script.statics {
-            let mut words = Vec::new();
-            lower_value(
-                static_id,
-                &declaration.ty,
-                &declaration.initializer,
-                &mut words,
-            )?;
-            let data = program.create_data(Some(declaration.name.clone()), words);
+            let base = match &declaration.kind {
+                StaticKind::Defined { initializer } => {
+                    let mut words = Vec::new();
+                    lower_value(static_id, &declaration.ty, initializer, &mut words)?;
+                    let data = program.create_data(Some(declaration.name.clone()), words);
+                    DataRef::Internal(data)
+                }
+                StaticKind::External => DataRef::External(ExternalData::new(&declaration.name)),
+            };
             declarations.insert(
                 static_id,
                 Some(DeclaredStatic {
-                    base: DataRef::Internal(data),
+                    base,
                     ty: declaration.ty.clone(),
                 }),
             );

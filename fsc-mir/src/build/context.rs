@@ -1,5 +1,8 @@
 use crate::build::body;
-use crate::{Function, FunctionId, FunctionKind, FunctionSignature, Linkage, Script, SourceInfo};
+use crate::{
+    Function, FunctionId, FunctionKind, FunctionSignature, Linkage, Script, SourceInfo, StaticDecl,
+    StaticId, StaticKind,
+};
 use cranelift_entity::{PrimaryMap, SecondaryMap};
 use fsc_sema::thir;
 
@@ -10,6 +13,34 @@ pub fn lower(thir: &thir::Script) -> Script {
 pub(super) struct FunctionMapping {
     source_functions: PrimaryMap<FunctionId, thir::FunctionId>,
     lowered_functions: SecondaryMap<thir::FunctionId, Option<FunctionId>>,
+}
+
+pub(super) struct StaticMapping {
+    source_statics: PrimaryMap<StaticId, thir::StaticId>,
+    lowered_statics: SecondaryMap<thir::StaticId, Option<StaticId>>,
+}
+
+impl StaticMapping {
+    fn collect(script: &thir::Script) -> Self {
+        let mut source_statics = PrimaryMap::new();
+        let mut lowered_statics = SecondaryMap::new();
+
+        for (source, _) in &script.statics {
+            let lowered = source_statics.push(source);
+            lowered_statics.insert(source, Some(lowered));
+        }
+
+        Self {
+            source_statics,
+            lowered_statics,
+        }
+    }
+
+    pub(super) fn lowered(&self, source: thir::StaticId) -> Option<StaticId> {
+        self.lowered_statics
+            .get(source)
+            .and_then(|static_var| *static_var)
+    }
 }
 
 impl FunctionMapping {
@@ -37,6 +68,7 @@ impl FunctionMapping {
 
 struct LoweringContext<'thir> {
     thir: &'thir thir::Script,
+    statics: StaticMapping,
     functions: FunctionMapping,
 }
 
@@ -44,13 +76,20 @@ impl<'thir> LoweringContext<'thir> {
     fn new(thir: &'thir thir::Script) -> Self {
         Self {
             thir,
+            statics: StaticMapping::collect(thir),
             functions: FunctionMapping::collect(thir),
         }
     }
 
     fn lower_script(&self) -> Script {
-        let statics = PrimaryMap::new();
+        let mut statics = PrimaryMap::new();
         let mut functions = PrimaryMap::new();
+
+        for (expected, source) in &self.statics.source_statics {
+            debug_assert_eq!(self.statics.lowered(*source), Some(expected));
+            let actual = statics.push(self.lower_static(*source));
+            debug_assert_eq!(actual, expected);
+        }
 
         for (expected, source) in &self.functions.source_functions {
             debug_assert_eq!(self.functions.lowered(*source), Some(expected));
@@ -74,6 +113,7 @@ impl<'thir> LoweringContext<'thir> {
                     body,
                     &source.signature.return_type,
                     source.source,
+                    &self.statics,
                     &self.functions,
                 ),
             },
@@ -85,6 +125,38 @@ impl<'thir> LoweringContext<'thir> {
             signature,
             kind,
             source: lower_source(source.source),
+        }
+    }
+
+    fn lower_static(&self, static_var: thir::StaticId) -> StaticDecl {
+        let source = &self.thir.statics[static_var];
+        let kind = match &source.kind {
+            thir::StaticKind::Defined { initializer } => StaticKind::Defined {
+                initializer: lower_const(initializer),
+            },
+            thir::StaticKind::External => StaticKind::External,
+        };
+
+        StaticDecl {
+            name: source.name.clone(),
+            ty: source.ty.clone(),
+            kind,
+            source: lower_source(source.source),
+        }
+    }
+}
+
+fn lower_const(value: &thir::ConstValue) -> crate::ConstValue {
+    match value {
+        thir::ConstValue::Int(value) => crate::ConstValue::Int(*value),
+        thir::ConstValue::Float(value) => crate::ConstValue::Float(*value),
+        thir::ConstValue::Bool(value) => crate::ConstValue::Bool(*value),
+        thir::ConstValue::String(value) => crate::ConstValue::String(value.clone()),
+        thir::ConstValue::Array(elements) => {
+            crate::ConstValue::Array(elements.iter().map(lower_const).collect())
+        }
+        thir::ConstValue::Aggregate(fields) => {
+            crate::ConstValue::Aggregate(fields.iter().map(lower_const).collect())
         }
     }
 }

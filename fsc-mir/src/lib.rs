@@ -7,7 +7,7 @@ pub use ir::{
     BasicBlock, BasicBlockId, BinaryOp, Body, CallArgument, ConstValue, Constant, DebugValue,
     FieldOperand, Function, FunctionId, FunctionKind, FunctionSignature, Linkage, LocalDecl,
     LocalId, LocalKind, Operand, Place, PlaceBase, ProjectionElem, Rvalue, Script, SourceInfo,
-    Statement, StatementKind, StaticDecl, StaticId, Terminator, TerminatorKind, UnaryOp,
+    Statement, StatementKind, StaticDecl, StaticId, StaticKind, Terminator, TerminatorKind, UnaryOp,
     VariableDebugInfo, RETURN_PLACE, START_BLOCK,
 };
 

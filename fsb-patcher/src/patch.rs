@@ -96,7 +96,7 @@ fn validate_external_declarations(
     for declaration in script.items.iter().filter_map(|item| match item {
         Item::FuncDef(_) => None,
         Item::ExternFuncDecl(declaration) => Some(declaration),
-        Item::ConstDecl(_) | Item::ConfigDecl(_) => None,
+        Item::StaticDecl(_) | Item::ConstDecl(_) | Item::ConfigDecl(_) => None,
     }) {
         let address = symbols
             .get_function(&declaration.header.name)

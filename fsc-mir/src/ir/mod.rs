@@ -15,7 +15,7 @@ pub use debug::{DebugValue, VariableDebugInfo};
 pub use entity::{BasicBlockId, FunctionId, LocalId, RETURN_PLACE, START_BLOCK, StaticId};
 pub use function::{Function, FunctionKind, FunctionSignature, Linkage, Script};
 pub use place::{Place, PlaceBase, ProjectionElem};
-pub use static_var::StaticDecl;
+pub use static_var::{StaticDecl, StaticKind};
 pub use value::{BinaryOp, ConstValue, Constant, FieldOperand, Operand, Rvalue, UnaryOp};
 
 use fsc_diagnostics::Span;

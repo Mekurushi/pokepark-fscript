@@ -13,7 +13,7 @@ impl BodyBuilder<'_> {
                 let ty = self.thir.expressions[expression].ty.clone();
                 Operand::Constant(Constant { value, ty })
             }
-            thir::ExprKind::Local(_) | thir::ExprKind::Deref { .. } => {
+            thir::ExprKind::Static(_) | thir::ExprKind::Local(_) | thir::ExprKind::Deref { .. } => {
                 Operand::Place(self.lower_place(expression))
             }
             thir::ExprKind::Field { base, field } => {
@@ -67,6 +67,7 @@ impl BodyBuilder<'_> {
     fn lower_rvalue(&mut self, expression: thir::ExprId) -> Rvalue {
         match &self.thir.expressions[expression].kind {
             thir::ExprKind::Constant(_)
+            | thir::ExprKind::Static(_)
             | thir::ExprKind::Local(_)
             | thir::ExprKind::Deref { .. }
             | thir::ExprKind::Field { .. }
@@ -227,6 +228,9 @@ impl BodyBuilder<'_> {
 
     pub(super) fn lower_place(&mut self, expression: thir::ExprId) -> Place {
         match &self.thir.expressions[expression].kind {
+            thir::ExprKind::Static(static_var) => {
+                Place::from_static(self.mapped_static(*static_var))
+            }
             thir::ExprKind::Local(local) => Place::from_local(self.mapped_local(*local)),
             thir::ExprKind::Deref { operand } => append_deref(self.lower_place(*operand)),
             thir::ExprKind::Field { base, field } => append_field(self.lower_place(*base), *field),
@@ -235,7 +239,7 @@ impl BodyBuilder<'_> {
                 let base = self.lower_place(base);
                 self.append_index(base, index)
             }
-            _ => unreachable!("THIR place must be rooted in a local"),
+            _ => unreachable!("THIR place must be rooted in a local or static"),
         }
     }
 
