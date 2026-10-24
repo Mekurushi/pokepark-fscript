@@ -55,10 +55,25 @@ pub(crate) fn evaluate(
 ) -> Option<ConstEvalResults> {
     let mut context = EvaluationContext::new(script, typeck, configs, diagnostics);
     for (item, declaration) in &script.items {
-        if matches!(declaration.kind, hir::ItemKind::Constant(_))
-            && context.evaluate_item(item, declaration.name_span).is_err()
-        {
-            context.mark_failed();
+        match &declaration.kind {
+            hir::ItemKind::Constant(_) => {
+                if context.evaluate_item(item, declaration.name_span).is_err() {
+                    context.mark_failed();
+                }
+            }
+            hir::ItemKind::Static(hir::Static {
+                kind: hir::StaticKind::Defined { initializer },
+                ..
+            }) => match context.evaluate_expression(LocalValues::Unavailable, initializer) {
+                Ok(value) => context.results.record_static_initializer(item, value),
+                Err(_) => context.mark_failed(),
+            },
+            hir::ItemKind::Function(_)
+            | hir::ItemKind::Static(hir::Static {
+                kind: hir::StaticKind::External,
+                ..
+            })
+            | hir::ItemKind::Config(_) => {}
         }
     }
     context.evaluate_bodies();
@@ -153,6 +168,12 @@ impl EvaluationContext<'_, '_> {
         reference_span: Span,
     ) -> Result<ConstValue, ErrorGuaranteed> {
         match &self.script.items[item].kind {
+            hir::ItemKind::Static(_) => {
+                Err(self.emit_error(ConstEvalError::NonConstantExpression {
+                    kind: "static variable",
+                    span: reference_span,
+                }))
+            }
             hir::ItemKind::Config(_) => {
                 let Some(value) = self.configs.value(item) else {
                     debug_assert!(false, "unbound config reached constant evaluation");

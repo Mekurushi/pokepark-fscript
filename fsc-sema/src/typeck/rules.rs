@@ -12,6 +12,7 @@ pub(super) enum Compatibility {
 pub(super) enum TypeContext {
     Parameter,
     Local,
+    Static,
     Constant,
     Config,
     Return,
@@ -22,6 +23,7 @@ impl TypeContext {
         match self {
             Self::Parameter => "parameter",
             Self::Local => "local variable",
+            Self::Static => "static variable",
             Self::Constant => "constant",
             Self::Config => "config value",
             Self::Return => "function return",
@@ -51,12 +53,25 @@ pub(super) fn type_allowed(ty: &Ty, context: TypeContext) -> bool {
             Ty::Array { element, .. } => valid_array_element_type(element),
             _ => *ty != Ty::Void && !matches!(ty, Ty::Reference(_)),
         },
+        TypeContext::Static => match ty {
+            Ty::Array { element, .. } => valid_static_element_type(element),
+            Ty::Int | Ty::Float | Ty::Vec3 | Ty::Bool => true,
+            Ty::Str | Ty::Reference(_) | Ty::Void => false,
+        },
         TypeContext::Constant => match ty {
             Ty::Array { element, .. } => valid_array_constant_element_type(element),
             _ => *ty != Ty::Void && !matches!(ty, Ty::Reference(_)),
         },
         TypeContext::Config => matches!(ty, Ty::Int | Ty::Float | Ty::Bool | Ty::Str),
         TypeContext::Return => supports_return(ty),
+    }
+}
+
+fn valid_static_element_type(ty: &Ty) -> bool {
+    match ty {
+        Ty::Array { element, .. } => valid_static_element_type(element),
+        Ty::Int | Ty::Float | Ty::Vec3 | Ty::Bool => true,
+        Ty::Str | Ty::Reference(_) | Ty::Void => false,
     }
 }
 

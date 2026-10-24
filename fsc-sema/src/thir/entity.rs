@@ -6,6 +6,11 @@ pub struct FunctionId(u32);
 entity_impl!(FunctionId, "function");
 
 #[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct StaticId(u32);
+
+entity_impl!(StaticId, "static");
+
+#[derive(Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct LocalId(u32);
 
 entity_impl!(LocalId, "local");

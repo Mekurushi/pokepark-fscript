@@ -10,7 +10,7 @@ pub use body::{
     BinaryOp, Block, Body, Expr, ExprKind, FieldExpr, Local, LocalKind, RawSyscallFunction,
     RawSyscallPage, Stmt, StmtKind, UnaryOp,
 };
-pub use entity::{ExprId, FunctionId, LocalId};
+pub use entity::{ExprId, FunctionId, LocalId, StaticId};
 pub use value::ConstValue;
 
 use crate::types::Ty;
@@ -19,7 +19,22 @@ use fsc_diagnostics::Span;
 
 #[derive(Debug, Default)]
 pub struct Script {
+    pub statics: PrimaryMap<StaticId, Static>,
     pub functions: PrimaryMap<FunctionId, Function>,
+}
+
+#[derive(Debug)]
+pub struct Static {
+    pub name: String,
+    pub ty: Ty,
+    pub kind: StaticKind,
+    pub source: SourceInfo,
+}
+
+#[derive(Debug)]
+pub enum StaticKind {
+    Defined { initializer: ConstValue },
+    External,
 }
 
 #[derive(Debug)]

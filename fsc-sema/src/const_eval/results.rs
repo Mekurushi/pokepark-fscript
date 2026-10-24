@@ -5,6 +5,7 @@ use cranelift_entity::SecondaryMap;
 #[derive(Debug, Default)]
 pub(crate) struct ConstEvalResults {
     items: SecondaryMap<hir::ItemId, Option<ConstValue>>,
+    static_initializers: SecondaryMap<hir::ItemId, Option<ConstValue>>,
     bodies: SecondaryMap<hir::ItemId, Option<EvaluatedBodyConstants>>,
     expressions: SecondaryMap<hir::ExprId, Option<ConstValue>>,
 }
@@ -20,6 +21,18 @@ impl ConstEvalResults {
 
     pub(crate) fn item(&self, item: hir::ItemId) -> Option<&ConstValue> {
         self.items.get(item).and_then(Option::as_ref)
+    }
+
+    pub(super) fn record_static_initializer(&mut self, item: hir::ItemId, value: ConstValue) {
+        let previous = self.static_initializers.insert(item, Some(value));
+        debug_assert!(
+            previous.flatten().is_none(),
+            "static initializer for {item:?} was recorded more than once"
+        );
+    }
+
+    pub(crate) fn static_initializer(&self, item: hir::ItemId) -> Option<&ConstValue> {
+        self.static_initializers.get(item).and_then(Option::as_ref)
     }
 
     pub(crate) fn local(&self, owner: hir::ItemId, local: hir::LocalId) -> Option<&ConstValue> {

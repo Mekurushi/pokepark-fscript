@@ -42,9 +42,19 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
     fn check_item(&mut self, item: &hir::Item) {
         match &item.kind {
             hir::ItemKind::Function(function) => self.check_function(function),
+            hir::ItemKind::Static(static_var) => self.check_static(static_var),
             hir::ItemKind::Constant(constant) => self.check_constant(constant),
             hir::ItemKind::Config(config) => self.check_config(config),
         }
+    }
+
+    fn check_static(&mut self, static_var: &hir::Static) {
+        self.check_declared_type(&static_var.ty, static_var.type_span, TypeContext::Static);
+        let hir::StaticKind::Defined { initializer } = &static_var.kind else {
+            return;
+        };
+        let actual = self.check_value_expression(None, initializer);
+        self.expect_type(actual, &static_var.ty, initializer.span);
     }
 
     fn check_function(&mut self, function: &hir::Function) {
@@ -214,9 +224,12 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             hir::ExprKind::Member { base, .. } | hir::ExprKind::Index { base, .. } => {
                 self.check_writable_place(body, base)
             }
-            hir::ExprKind::ItemRef(_) => Err(self.emit_error(TypeckError::ImmutableItem {
-                span: expression.span,
-            })),
+            hir::ExprKind::ItemRef(item) => match &self.script.items[*item].kind {
+                hir::ItemKind::Static(_) => Ok(()),
+                _ => Err(self.emit_error(TypeckError::ImmutableItem {
+                    span: expression.span,
+                })),
+            },
             _ => Err(self.emit_error(TypeckError::NotAssignable {
                 span: expression.span,
             })),
@@ -295,6 +308,7 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             }
             hir::ExprKind::ItemRef(item) => match &self.script.items[*item].kind {
                 hir::ItemKind::Function(_) => Ok(ExprType::Function(*item)),
+                hir::ItemKind::Static(static_var) => Ok(ExprType::Value(static_var.ty.clone())),
                 hir::ItemKind::Constant(constant) => Ok(ExprType::Value(constant.ty.clone())),
                 hir::ItemKind::Config(config) => Ok(ExprType::Value(config.ty.clone())),
             },

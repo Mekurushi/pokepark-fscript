@@ -1,4 +1,4 @@
-use super::{ConstValue, ExprId, FieldIdx, FunctionId, LocalId, SourceInfo};
+use super::{ConstValue, ExprId, FieldIdx, FunctionId, LocalId, SourceInfo, StaticId};
 use crate::types::Ty;
 use cranelift_entity::PrimaryMap;
 
@@ -76,6 +76,7 @@ pub struct Expr {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ExprKind {
     Constant(ConstValue),
+    Static(StaticId),
     Local(LocalId),
     Deref {
         operand: ExprId,

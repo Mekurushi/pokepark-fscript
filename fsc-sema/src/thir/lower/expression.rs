@@ -135,6 +135,12 @@ impl BodyLowerer<'_, '_> {
 
     fn lower_item(&self, item: hir::ItemId) -> thir::ExprKind {
         match &self.context.hir.items[item].kind {
+            hir::ItemKind::Static(_) => {
+                let Some(static_var) = self.context.statics.static_var(item) else {
+                    unreachable!("unmapped static reached THIR lowering")
+                };
+                thir::ExprKind::Static(static_var)
+            }
             hir::ItemKind::Constant(_) => {
                 let Some(value) = self.context.constants.item(item) else {
                     unreachable!("unevaluated constant reached THIR lowering")
