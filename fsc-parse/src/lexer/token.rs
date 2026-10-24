@@ -50,6 +50,9 @@ pub enum TokenKind {
     #[token("extern", priority = 10)]
     KwExtern,
 
+    #[token("static", priority = 10)]
+    KwStatic,
+
     #[token("const", priority = 10)]
     KwConst,
 
@@ -193,6 +196,7 @@ impl TokenKind {
             Self::KwBreak => "`break`",
             Self::KwExport => "`export`",
             Self::KwExtern => "`extern`",
+            Self::KwStatic => "`static`",
             Self::KwConst => "`const`",
             Self::KwConfig => "`config`",
             Self::KwSysCall => "`SysCall`",

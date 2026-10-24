@@ -25,8 +25,22 @@ pub struct Item {
 #[derive(Debug)]
 pub enum ItemKind {
     Function(Function),
+    Static(Static),
     Constant(Constant),
     Config(Config),
+}
+
+#[derive(Debug)]
+pub struct Static {
+    pub ty: Ty,
+    pub type_span: Span,
+    pub kind: StaticKind,
+}
+
+#[derive(Debug)]
+pub enum StaticKind {
+    Defined { initializer: Expr },
+    External,
 }
 
 #[derive(Debug)]

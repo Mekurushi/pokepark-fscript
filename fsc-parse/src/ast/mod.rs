@@ -193,6 +193,21 @@ pub struct ConstDecl {
 }
 
 #[derive(Debug, Clone)]
+pub struct StaticDecl {
+    pub name: String,
+    pub name_span: Span,
+    pub ty: Ty,
+    pub ty_span: Span,
+    pub kind: StaticKind,
+}
+
+#[derive(Debug, Clone)]
+pub enum StaticKind {
+    Defined { initializer: Expr },
+    External,
+}
+
+#[derive(Debug, Clone)]
 pub struct ConfigDecl {
     pub name: String,
     pub name_span: Span,
@@ -204,6 +219,7 @@ pub struct ConfigDecl {
 pub enum Item {
     FuncDef(FuncDef),
     ExternFuncDecl(ExternFuncDecl),
+    StaticDecl(StaticDecl),
     ConstDecl(ConstDecl),
     ConfigDecl(ConfigDecl),
 }

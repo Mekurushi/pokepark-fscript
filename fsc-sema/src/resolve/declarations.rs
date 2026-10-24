@@ -40,6 +40,7 @@ pub(super) fn collect(script: &ast::Script, diagnostics: &mut Diagnostics) -> De
             ast::Item::ExternFuncDecl(function) => {
                 (&function.header.name, function.header.name_span)
             }
+            ast::Item::StaticDecl(static_var) => (&static_var.name, static_var.name_span),
             ast::Item::ConstDecl(constant) => (&constant.name, constant.name_span),
             ast::Item::ConfigDecl(config) => (&config.name, config.name_span),
         };

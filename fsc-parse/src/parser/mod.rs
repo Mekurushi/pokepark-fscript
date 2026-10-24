@@ -1,7 +1,7 @@
 pub(crate) mod error;
 use crate::ast::{
-    BinOp, ConfigDecl, ConstDecl, Expr, ExprField, ExprKind, ExternFuncDecl, FuncDef, FunctionHeader,
-    Item, Param, Stmt, Ty, UnaryOp,
+    BinOp, ConfigDecl, ConstDecl, Expr, ExprField, ExprKind, ExternFuncDecl, FuncDef,
+    FunctionHeader, Item, Param, StaticDecl, StaticKind, Stmt, Ty, UnaryOp,
 };
 use crate::ast::{NodeId, StmtKind};
 use crate::lexer::token::{Token, TokenKind};
@@ -145,9 +145,28 @@ impl Parser {
     pub fn parse_item(&mut self) -> ParseResult<Item> {
         match self.ts.peek() {
             Some(TokenKind::KwExtern) => {
-                let declaration = self.parse_extern_function_declaration()?;
+                self.ts.expect(&TokenKind::KwExtern, "`extern`")?;
+                let item = if self.ts.peek() == Some(&TokenKind::KwStatic) {
+                    Item::StaticDecl(self.parse_external_static_declaration()?)
+                } else {
+                    Item::ExternFuncDecl(self.parse_extern_function_declaration()?)
+                };
                 self.ts.expect(&TokenKind::Semicolon, "`;`")?;
-                Ok(Item::ExternFuncDecl(declaration))
+                Ok(item)
+            }
+            Some(TokenKind::KwStatic) => {
+                self.ts.expect(&TokenKind::KwStatic, "`static`")?;
+                let head = self.parse_decl_head()?;
+                self.ts.expect(&TokenKind::Eq, "`=`")?;
+                let initializer = self.parse_expr(0)?;
+                self.ts.expect(&TokenKind::Semicolon, "`;`")?;
+                Ok(Item::StaticDecl(StaticDecl {
+                    name: head.name,
+                    name_span: head.name_span,
+                    ty: head.ty,
+                    ty_span: head.ty_span,
+                    kind: StaticKind::Defined { initializer },
+                }))
             }
             Some(TokenKind::KwConst) => {
                 let declaration = self.parse_const_declaration()?;
@@ -187,12 +206,24 @@ impl Parser {
     }
 
     fn parse_extern_function_declaration(&mut self) -> ParseResult<ExternFuncDecl> {
-        self.ts.expect(&TokenKind::KwExtern, "`extern`")?;
         let header = self.parse_function_header()?;
 
         Ok(ExternFuncDecl {
             id: self.ids.alloc(),
             header,
+        })
+    }
+
+    fn parse_external_static_declaration(&mut self) -> ParseResult<StaticDecl> {
+        self.ts.expect(&TokenKind::KwStatic, "`static`")?;
+        let head = self.parse_decl_head()?;
+
+        Ok(StaticDecl {
+            name: head.name,
+            name_span: head.name_span,
+            ty: head.ty,
+            ty_span: head.ty_span,
+            kind: StaticKind::External,
         })
     }
 

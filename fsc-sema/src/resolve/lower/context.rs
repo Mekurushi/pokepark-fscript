@@ -77,6 +77,26 @@ impl<'declarations, 'diagnostics> LoweringContext<'declarations, 'diagnostics> {
                     kind: hir::FunctionKind::External,
                 }),
             },
+            ast::Item::StaticDecl(static_var) => hir::Item {
+                name: static_var.name.clone(),
+                name_span: static_var.name_span,
+                kind: hir::ItemKind::Static(hir::Static {
+                    ty: Ty::from(&static_var.ty),
+                    type_span: static_var.ty_span,
+                    kind: match &static_var.kind {
+                        ast::StaticKind::Defined { initializer } => hir::StaticKind::Defined {
+                            initializer: ExpressionLowerer::new(
+                                NameResolver::global(self.declarations),
+                                self.diagnostics,
+                                &mut self.expression_ids,
+                                &mut self.expr_field_ids,
+                            )
+                            .lower(initializer),
+                        },
+                        ast::StaticKind::External => hir::StaticKind::External,
+                    },
+                }),
+            },
             ast::Item::ConstDecl(constant) => hir::Item {
                 name: constant.name.clone(),
                 name_span: constant.name_span,
