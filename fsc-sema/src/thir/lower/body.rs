@@ -84,6 +84,7 @@ impl<'context, 'analysis> BodyLowerer<'context, 'analysis> {
                     .map(|expression| self.lower_expression(expression)),
             },
             hir::StmtKind::Break => thir::StmtKind::Break,
+            hir::StmtKind::Continue => thir::StmtKind::Continue,
             hir::StmtKind::VariableDeclaration { local, initializer } => {
                 thir::StmtKind::LocalDeclaration {
                     local: Self::mapped_local(&self.local_mapping, *local),

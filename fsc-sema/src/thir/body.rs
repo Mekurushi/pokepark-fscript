@@ -41,6 +41,7 @@ pub enum StmtKind {
         value: Option<ExprId>,
     },
     Break,
+    Continue,
     LocalDeclaration {
         local: LocalId,
         initializer: Option<ExprId>,

@@ -43,6 +43,12 @@ impl BodyBuilder<'_> {
                 };
                 self.cfg.goto(target, source);
             }
+            thir::StmtKind::Continue => {
+                let Some(target) = self.scopes.continue_target() else {
+                    unreachable!("continue outside a loop reached MIR lowering");
+                };
+                self.cfg.goto(target, source);
+            }
             thir::StmtKind::LocalDeclaration { local, initializer } => {
                 if let Some(initializer) = initializer {
                     self.lower_expression_into(*initializer, self.local_place(*local));
@@ -148,9 +154,9 @@ impl BodyBuilder<'_> {
         //         ...
         //         goto condition
         self.cfg.switch_to(body_target);
-        self.scopes.enter_loop(exit_target);
+        self.scopes.enter_loop(exit_target, condition_target);
         self.lower_block(body);
-        self.scopes.exit_loop(exit_target);
+        self.scopes.exit_loop(exit_target, condition_target);
         if self.cfg.has_current_block() {
             self.cfg.goto(condition_target, lower_source(source));
         }

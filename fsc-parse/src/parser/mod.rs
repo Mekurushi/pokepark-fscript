@@ -390,6 +390,15 @@ impl Parser {
                     self.ts.span_consumed_from(start),
                 ))
             }
+            Some(TokenKind::KwContinue) => {
+                let start = self.ts.current_offset();
+                self.ts.advance();
+                Ok(Stmt::new(
+                    self.ids.alloc(),
+                    StmtKind::Continue,
+                    self.ts.span_consumed_from(start),
+                ))
+            }
             Some(TokenKind::Ident(_)) => self.parse_assign_or_expr_stmt(),
             Some(TokenKind::At) => {
                 let expr = self.parse_expr(0)?;

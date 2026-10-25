@@ -73,6 +73,7 @@ impl<'declarations, 'diagnostics> BodyLowerer<'declarations, 'diagnostics> {
                     .map(|expression| self.lower_expression(expression)),
             ),
             ast::StmtKind::Break => hir::StmtKind::Break,
+            ast::StmtKind::Continue => hir::StmtKind::Continue,
             ast::StmtKind::VarDecl {
                 name,
                 name_span,

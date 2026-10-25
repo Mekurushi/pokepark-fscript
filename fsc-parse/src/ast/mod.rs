@@ -123,6 +123,7 @@ pub struct Stmt {
 pub enum StmtKind {
     Return(Option<Expr>),
     Break,
+    Continue,
     VarDecl {
         name: String,
         name_span: Span,

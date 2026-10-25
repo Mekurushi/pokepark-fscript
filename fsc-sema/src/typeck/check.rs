@@ -122,7 +122,7 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
             hir::StmtKind::Return(value) => {
                 self.check_return(body, value.as_ref(), return_type, statement.span);
             }
-            hir::StmtKind::Break => {}
+            hir::StmtKind::Break | hir::StmtKind::Continue => {}
             hir::StmtKind::VariableDeclaration { local, initializer } => {
                 if let Some(initializer) = initializer {
                     let actual = self.check_value_expression(Some(body), initializer);

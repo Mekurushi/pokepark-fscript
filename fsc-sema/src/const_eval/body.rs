@@ -70,6 +70,7 @@ impl<'context, 'analysis, 'diagnostics> BodyEvaluator<'context, 'analysis, 'diag
                 } => self.evaluate_block(loop_body),
                 hir::StmtKind::Return(_)
                 | hir::StmtKind::Break
+                | hir::StmtKind::Continue
                 | hir::StmtKind::VariableDeclaration { .. }
                 | hir::StmtKind::Assign { .. }
                 | hir::StmtKind::Expression(_)
@@ -118,7 +119,7 @@ impl<'context, 'analysis, 'diagnostics> BodyEvaluator<'context, 'analysis, 'diag
                     self.evaluate_required_expression(condition);
                     self.evaluate_required_block(loop_body);
                 }
-                hir::StmtKind::Break => {}
+                hir::StmtKind::Break | hir::StmtKind::Continue => {}
             }
         }
     }

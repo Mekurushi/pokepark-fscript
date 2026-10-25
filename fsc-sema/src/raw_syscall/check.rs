@@ -81,7 +81,7 @@ impl Checker<'_> {
                     self.check_expression(condition);
                     self.check_block(loop_body);
                 }
-                hir::StmtKind::Break => {}
+                hir::StmtKind::Break | hir::StmtKind::Continue => {}
             }
         }
     }

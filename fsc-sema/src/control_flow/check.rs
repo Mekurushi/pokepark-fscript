@@ -39,6 +39,13 @@ impl ControlFlowChecker<'_> {
                         },
                     ));
                 }
+                hir::StmtKind::Continue if loop_depth == 0 => {
+                    self.diagnostics.emit_error(Diagnostic::from(
+                        ControlFlowError::ContinueOutsideLoop {
+                            span: statement.span,
+                        },
+                    ));
+                }
                 hir::StmtKind::If {
                     then_block,
                     else_block,
@@ -54,6 +61,7 @@ impl ControlFlowChecker<'_> {
                 }
                 hir::StmtKind::Return(_)
                 | hir::StmtKind::Break
+                | hir::StmtKind::Continue
                 | hir::StmtKind::VariableDeclaration { .. }
                 | hir::StmtKind::ConstantDeclaration { .. }
                 | hir::StmtKind::Assign { .. }

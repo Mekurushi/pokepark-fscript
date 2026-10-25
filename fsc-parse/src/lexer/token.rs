@@ -43,6 +43,9 @@ pub enum TokenKind {
     #[token("break", priority = 10)]
     KwBreak,
 
+    #[token("continue", priority = 10)]
+    KwContinue,
+
     // --- Declaration keywords ---
     #[token("export", priority = 10)]
     KwExport,
@@ -189,6 +192,7 @@ impl TokenKind {
             Self::KwWhile => "`while`",
             Self::KwReturn => "`return`",
             Self::KwBreak => "`break`",
+            Self::KwContinue => "`continue`",
             Self::KwExport => "`export`",
             Self::KwExtern => "`extern`",
             Self::KwStatic => "`static`",
