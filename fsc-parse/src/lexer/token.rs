@@ -37,6 +37,9 @@ pub enum TokenKind {
     #[token("while", priority = 10)]
     KwWhile,
 
+    #[token("for", priority = 10)]
+    KwFor,
+
     #[token("return", priority = 10)]
     KwReturn,
 
@@ -190,6 +193,7 @@ impl TokenKind {
             Self::KwIf => "`if`",
             Self::KwElse => "`else`",
             Self::KwWhile => "`while`",
+            Self::KwFor => "`for`",
             Self::KwReturn => "`return`",
             Self::KwBreak => "`break`",
             Self::KwContinue => "`continue`",

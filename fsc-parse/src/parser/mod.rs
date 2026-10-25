@@ -368,6 +368,7 @@ impl Parser {
         let mut stmt = match self.ts.peek() {
             Some(TokenKind::KwIf) => self.parse_if(),
             Some(TokenKind::KwWhile) => self.parse_while(),
+            Some(TokenKind::KwFor) => self.parse_for(),
             _ => {
                 let stmt = self.parse_stmt_inner()?;
                 self.ts.expect(&TokenKind::Semicolon, "`;`")?;
@@ -400,11 +401,7 @@ impl Parser {
                 ))
             }
             Some(TokenKind::Ident(_)) => self.parse_assign_or_expr_stmt(),
-            Some(TokenKind::At) => {
-                let expr = self.parse_expr(0)?;
-                let span = expr.span;
-                Ok(Stmt::new(self.ids.alloc(), StmtKind::ExprStmt(expr), span))
-            }
+            Some(TokenKind::At) => self.parse_builtin_expression_statement(),
             Some(TokenKind::KwConst) => self.parse_local_const_decl(),
             Some(token) if token.is_variable_type_keyword() => self.parse_var_decl(),
             _ => Err(self.ts.unexpected("statement")),
@@ -457,6 +454,63 @@ impl Parser {
             StmtKind::While { cond, body },
             self.ts.span_consumed_from(start),
         ))
+    }
+
+    fn parse_for(&mut self) -> ParseResult<Stmt> {
+        let start = self.ts.current_offset();
+        self.ts.expect(&TokenKind::KwFor, "`for`")?;
+        self.ts.expect(&TokenKind::LParen, "`(`")?;
+
+        let initializer = if self.ts.peek() == Some(&TokenKind::Semicolon) {
+            None
+        } else {
+            Some(Box::new(self.parse_for_initializer()?))
+        };
+        self.ts.expect(&TokenKind::Semicolon, "`;`")?;
+
+        let condition = if self.ts.peek() == Some(&TokenKind::Semicolon) {
+            None
+        } else {
+            Some(self.parse_expr(0)?)
+        };
+        self.ts.expect(&TokenKind::Semicolon, "`;`")?;
+
+        let step = if self.ts.peek() == Some(&TokenKind::RParen) {
+            None
+        } else {
+            Some(Box::new(self.parse_for_step()?))
+        };
+        self.ts.expect(&TokenKind::RParen, "`)`")?;
+
+        let body = self.parse_block()?;
+        Ok(Stmt::new(
+            self.ids.alloc(),
+            StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            },
+            self.ts.span_consumed_from(start),
+        ))
+    }
+
+    fn parse_for_initializer(&mut self) -> ParseResult<Stmt> {
+        match self.ts.peek() {
+            Some(TokenKind::KwConst) => self.parse_local_const_decl(),
+            Some(token) if token.is_variable_type_keyword() => self.parse_var_decl(),
+            Some(TokenKind::Ident(_)) => self.parse_assign_or_expr_stmt(),
+            Some(TokenKind::At) => self.parse_builtin_expression_statement(),
+            _ => Err(self.ts.unexpected("for-loop initializer")),
+        }
+    }
+
+    fn parse_for_step(&mut self) -> ParseResult<Stmt> {
+        match self.ts.peek() {
+            Some(TokenKind::Ident(_)) => self.parse_assign_or_expr_stmt(),
+            Some(TokenKind::At) => self.parse_builtin_expression_statement(),
+            _ => Err(self.ts.unexpected("for-loop step")),
+        }
     }
 
     fn parse_block(&mut self) -> ParseResult<Vec<Stmt>> {
@@ -517,6 +571,12 @@ impl Parser {
                 self.ts.span_consumed_from(start),
             ))
         }
+    }
+
+    fn parse_builtin_expression_statement(&mut self) -> ParseResult<Stmt> {
+        let expr = self.parse_expr(0)?;
+        let span = expr.span;
+        Ok(Stmt::new(self.ids.alloc(), StmtKind::ExprStmt(expr), span))
     }
 
     fn parse_return(&mut self) -> ParseResult<Stmt> {

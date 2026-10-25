@@ -146,6 +146,12 @@ pub enum StmtKind {
         cond: Expr,
         body: Vec<Stmt>,
     },
+    For {
+        initializer: Option<Box<Stmt>>,
+        condition: Option<Expr>,
+        step: Option<Box<Stmt>>,
+        body: Vec<Stmt>,
+    },
 }
 
 impl Stmt {
