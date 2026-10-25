@@ -117,6 +117,25 @@ impl<'context, 'analysis> BodyLowerer<'context, 'analysis> {
                 condition: self.lower_expression(condition),
                 body: self.lower_block(body),
             },
+            hir::StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => thir::StmtKind::For {
+                initializer: initializer
+                    .as_deref()
+                    .and_then(|statement| self.lower_statement(statement))
+                    .map(Box::new),
+                condition: condition
+                    .as_ref()
+                    .map(|expression| self.lower_expression(expression)),
+                step: step
+                    .as_deref()
+                    .and_then(|statement| self.lower_statement(statement))
+                    .map(Box::new),
+                body: self.lower_block(body),
+            },
         };
 
         Some(thir::Stmt {

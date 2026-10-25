@@ -165,6 +165,23 @@ impl<'hir, 'diagnostics> TypeChecker<'hir, 'diagnostics> {
                 self.check_condition(body, condition);
                 self.check_block(body, loop_body, return_type);
             }
+            hir::StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body: loop_body,
+            } => {
+                if let Some(initializer) = initializer {
+                    self.check_statement(body, initializer, return_type);
+                }
+                if let Some(condition) = condition {
+                    self.check_condition(body, condition);
+                }
+                if let Some(step) = step {
+                    self.check_statement(body, step, return_type);
+                }
+                self.check_block(body, loop_body, return_type);
+            }
         }
     }
 

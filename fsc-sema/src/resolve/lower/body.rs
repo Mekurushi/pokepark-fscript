@@ -119,11 +119,44 @@ impl<'declarations, 'diagnostics> BodyLowerer<'declarations, 'diagnostics> {
                 condition: self.lower_expression(cond),
                 body: self.lower_block(body),
             },
+            ast::StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => self.lower_for(
+                initializer.as_deref(),
+                condition.as_ref(),
+                step.as_deref(),
+                body,
+            ),
         };
 
         hir::Stmt {
             kind,
             span: source.span,
+        }
+    }
+
+    fn lower_for(
+        &mut self,
+        initializer: Option<&ast::Stmt>,
+        condition: Option<&ast::Expr>,
+        step: Option<&ast::Stmt>,
+        body: &[ast::Stmt],
+    ) -> hir::StmtKind {
+        self.scopes.enter_block();
+        let initializer = initializer.map(|statement| Box::new(self.lower_statement(statement)));
+        let condition = condition.map(|expression| self.lower_expression(expression));
+        let step = step.map(|statement| Box::new(self.lower_statement(statement)));
+        let body = self.lower_block(body);
+        self.scopes.exit_block();
+
+        hir::StmtKind::For {
+            initializer,
+            condition,
+            step,
+            body,
         }
     }
 

@@ -31,43 +31,60 @@ impl ControlFlowChecker<'_> {
 
     fn check_block(&mut self, block: &hir::Block, loop_depth: usize) {
         for statement in &block.statements {
-            match &statement.kind {
-                hir::StmtKind::Break if loop_depth == 0 => {
-                    self.diagnostics.emit_error(Diagnostic::from(
-                        ControlFlowError::BreakOutsideLoop {
-                            span: statement.span,
-                        },
-                    ));
-                }
-                hir::StmtKind::Continue if loop_depth == 0 => {
-                    self.diagnostics.emit_error(Diagnostic::from(
-                        ControlFlowError::ContinueOutsideLoop {
-                            span: statement.span,
-                        },
-                    ));
-                }
-                hir::StmtKind::If {
-                    then_block,
-                    else_block,
-                    ..
-                } => {
-                    self.check_block(then_block, loop_depth);
-                    if let Some(else_block) = else_block {
-                        self.check_block(else_block, loop_depth);
-                    }
-                }
-                hir::StmtKind::While { body, .. } => {
-                    self.check_block(body, loop_depth + 1);
-                }
-                hir::StmtKind::Return(_)
-                | hir::StmtKind::Break
-                | hir::StmtKind::Continue
-                | hir::StmtKind::VariableDeclaration { .. }
-                | hir::StmtKind::ConstantDeclaration { .. }
-                | hir::StmtKind::Assign { .. }
-                | hir::StmtKind::Expression(_)
-                | hir::StmtKind::Pause(_) => {}
+            self.check_statement(statement, loop_depth);
+        }
+    }
+
+    fn check_statement(&mut self, statement: &hir::Stmt, loop_depth: usize) {
+        match &statement.kind {
+            hir::StmtKind::Break if loop_depth == 0 => {
+                self.diagnostics
+                    .emit_error(Diagnostic::from(ControlFlowError::BreakOutsideLoop {
+                        span: statement.span,
+                    }));
             }
+            hir::StmtKind::Continue if loop_depth == 0 => {
+                self.diagnostics.emit_error(Diagnostic::from(
+                    ControlFlowError::ContinueOutsideLoop {
+                        span: statement.span,
+                    },
+                ));
+            }
+            hir::StmtKind::If {
+                then_block,
+                else_block,
+                ..
+            } => {
+                self.check_block(then_block, loop_depth);
+                if let Some(else_block) = else_block {
+                    self.check_block(else_block, loop_depth);
+                }
+            }
+            hir::StmtKind::While { body, .. } => {
+                self.check_block(body, loop_depth + 1);
+            }
+            hir::StmtKind::For {
+                initializer,
+                step,
+                body,
+                ..
+            } => {
+                if let Some(initializer) = initializer {
+                    self.check_statement(initializer, loop_depth);
+                }
+                if let Some(step) = step {
+                    self.check_statement(step, loop_depth);
+                }
+                self.check_block(body, loop_depth + 1);
+            }
+            hir::StmtKind::Return(_)
+            | hir::StmtKind::Break
+            | hir::StmtKind::Continue
+            | hir::StmtKind::VariableDeclaration { .. }
+            | hir::StmtKind::ConstantDeclaration { .. }
+            | hir::StmtKind::Assign { .. }
+            | hir::StmtKind::Expression(_)
+            | hir::StmtKind::Pause(_) => {}
         }
     }
 }

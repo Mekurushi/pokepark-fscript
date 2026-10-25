@@ -45,44 +45,65 @@ impl Checker<'_> {
 
     fn check_block(&mut self, block: &hir::Block) {
         for statement in &block.statements {
-            match &statement.kind {
-                hir::StmtKind::Return(value) => {
-                    if let Some(value) = value {
-                        self.check_expression(value);
-                    }
-                }
-                hir::StmtKind::VariableDeclaration { initializer, .. } => {
-                    if let Some(initializer) = initializer {
-                        self.check_expression(initializer);
-                    }
-                }
-                hir::StmtKind::ConstantDeclaration { initializer, .. }
-                | hir::StmtKind::Expression(initializer)
-                | hir::StmtKind::Pause(initializer) => self.check_expression(initializer),
-                hir::StmtKind::Assign { target, value } => {
-                    self.check_expression(target);
+            self.check_statement(statement);
+        }
+    }
+
+    fn check_statement(&mut self, statement: &hir::Stmt) {
+        match &statement.kind {
+            hir::StmtKind::Return(value) => {
+                if let Some(value) = value {
                     self.check_expression(value);
                 }
-                hir::StmtKind::If {
-                    condition,
-                    then_block,
-                    else_block,
-                } => {
-                    self.check_expression(condition);
-                    self.check_block(then_block);
-                    if let Some(else_block) = else_block {
-                        self.check_block(else_block);
-                    }
-                }
-                hir::StmtKind::While {
-                    condition,
-                    body: loop_body,
-                } => {
-                    self.check_expression(condition);
-                    self.check_block(loop_body);
-                }
-                hir::StmtKind::Break | hir::StmtKind::Continue => {}
             }
+            hir::StmtKind::VariableDeclaration { initializer, .. } => {
+                if let Some(initializer) = initializer {
+                    self.check_expression(initializer);
+                }
+            }
+            hir::StmtKind::ConstantDeclaration { initializer, .. }
+            | hir::StmtKind::Expression(initializer)
+            | hir::StmtKind::Pause(initializer) => self.check_expression(initializer),
+            hir::StmtKind::Assign { target, value } => {
+                self.check_expression(target);
+                self.check_expression(value);
+            }
+            hir::StmtKind::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
+                self.check_expression(condition);
+                self.check_block(then_block);
+                if let Some(else_block) = else_block {
+                    self.check_block(else_block);
+                }
+            }
+            hir::StmtKind::While {
+                condition,
+                body: loop_body,
+            } => {
+                self.check_expression(condition);
+                self.check_block(loop_body);
+            }
+            hir::StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => {
+                if let Some(initializer) = initializer {
+                    self.check_statement(initializer);
+                }
+                if let Some(condition) = condition {
+                    self.check_expression(condition);
+                }
+                if let Some(step) = step {
+                    self.check_statement(step);
+                }
+                self.check_block(body);
+            }
+            hir::StmtKind::Break | hir::StmtKind::Continue => {}
         }
     }
 

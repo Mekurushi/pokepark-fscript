@@ -41,86 +41,125 @@ impl<'context, 'analysis, 'diagnostics> BodyEvaluator<'context, 'analysis, 'diag
     // it myself easy and keep it out. Still trying my best to not block it out.
     fn evaluate_block(&mut self, block: &hir::Block) {
         for statement in &block.statements {
-            match &statement.kind {
-                hir::StmtKind::ConstantDeclaration { local, initializer } => {
-                    let locals = LocalValues::Body {
-                        body: self.body,
-                        evaluation: &self.evaluation,
-                    };
-                    match self.context.evaluate_expression(locals, initializer) {
-                        Ok(value) => self.evaluation.constants.record_local(*local, value),
-                        Err(error) => {
-                            self.context.mark_failed();
-                            self.evaluation.failures.insert(*local, Some(error));
-                        }
+            self.evaluate_statement(statement);
+        }
+    }
+
+    fn evaluate_statement(&mut self, statement: &hir::Stmt) {
+        match &statement.kind {
+            hir::StmtKind::ConstantDeclaration { local, initializer } => {
+                let locals = LocalValues::Body {
+                    body: self.body,
+                    evaluation: &self.evaluation,
+                };
+                match self.context.evaluate_expression(locals, initializer) {
+                    Ok(value) => self.evaluation.constants.record_local(*local, value),
+                    Err(error) => {
+                        self.context.mark_failed();
+                        self.evaluation.failures.insert(*local, Some(error));
                     }
                 }
-                hir::StmtKind::If {
-                    then_block,
-                    else_block,
-                    ..
-                } => {
-                    self.evaluate_block(then_block);
-                    if let Some(else_block) = else_block {
-                        self.evaluate_block(else_block);
-                    }
-                }
-                hir::StmtKind::While {
-                    body: loop_body, ..
-                } => self.evaluate_block(loop_body),
-                hir::StmtKind::Return(_)
-                | hir::StmtKind::Break
-                | hir::StmtKind::Continue
-                | hir::StmtKind::VariableDeclaration { .. }
-                | hir::StmtKind::Assign { .. }
-                | hir::StmtKind::Expression(_)
-                | hir::StmtKind::Pause(_) => {}
             }
+            hir::StmtKind::If {
+                then_block,
+                else_block,
+                ..
+            } => {
+                self.evaluate_block(then_block);
+                if let Some(else_block) = else_block {
+                    self.evaluate_block(else_block);
+                }
+            }
+            hir::StmtKind::While {
+                body: loop_body, ..
+            } => self.evaluate_block(loop_body),
+            hir::StmtKind::For {
+                initializer,
+                step,
+                body,
+                ..
+            } => {
+                if let Some(initializer) = initializer {
+                    self.evaluate_statement(initializer);
+                }
+                if let Some(step) = step {
+                    self.evaluate_statement(step);
+                }
+                self.evaluate_block(body);
+            }
+            hir::StmtKind::Return(_)
+            | hir::StmtKind::Break
+            | hir::StmtKind::Continue
+            | hir::StmtKind::VariableDeclaration { .. }
+            | hir::StmtKind::Assign { .. }
+            | hir::StmtKind::Expression(_)
+            | hir::StmtKind::Pause(_) => {}
         }
     }
 
     fn evaluate_required_block(&mut self, block: &hir::Block) {
         for statement in &block.statements {
-            match &statement.kind {
-                hir::StmtKind::Return(value) => {
-                    if let Some(value) = value {
-                        self.evaluate_required_expression(value);
-                    }
-                }
-                hir::StmtKind::VariableDeclaration { initializer, .. } => {
-                    if let Some(initializer) = initializer {
-                        self.evaluate_required_expression(initializer);
-                    }
-                }
-                hir::StmtKind::ConstantDeclaration { initializer, .. }
-                | hir::StmtKind::Expression(initializer)
-                | hir::StmtKind::Pause(initializer) => {
-                    self.evaluate_required_expression(initializer);
-                }
-                hir::StmtKind::Assign { target, value } => {
-                    self.evaluate_required_expression(target);
+            self.evaluate_required_statement(statement);
+        }
+    }
+
+    fn evaluate_required_statement(&mut self, statement: &hir::Stmt) {
+        match &statement.kind {
+            hir::StmtKind::Return(value) => {
+                if let Some(value) = value {
                     self.evaluate_required_expression(value);
                 }
-                hir::StmtKind::If {
-                    condition,
-                    then_block,
-                    else_block,
-                } => {
-                    self.evaluate_required_expression(condition);
-                    self.evaluate_required_block(then_block);
-                    if let Some(else_block) = else_block {
-                        self.evaluate_required_block(else_block);
-                    }
-                }
-                hir::StmtKind::While {
-                    condition,
-                    body: loop_body,
-                } => {
-                    self.evaluate_required_expression(condition);
-                    self.evaluate_required_block(loop_body);
-                }
-                hir::StmtKind::Break | hir::StmtKind::Continue => {}
             }
+            hir::StmtKind::VariableDeclaration { initializer, .. } => {
+                if let Some(initializer) = initializer {
+                    self.evaluate_required_expression(initializer);
+                }
+            }
+            hir::StmtKind::ConstantDeclaration { initializer, .. }
+            | hir::StmtKind::Expression(initializer)
+            | hir::StmtKind::Pause(initializer) => {
+                self.evaluate_required_expression(initializer);
+            }
+            hir::StmtKind::Assign { target, value } => {
+                self.evaluate_required_expression(target);
+                self.evaluate_required_expression(value);
+            }
+            hir::StmtKind::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
+                self.evaluate_required_expression(condition);
+                self.evaluate_required_block(then_block);
+                if let Some(else_block) = else_block {
+                    self.evaluate_required_block(else_block);
+                }
+            }
+            hir::StmtKind::While {
+                condition,
+                body: loop_body,
+            } => {
+                self.evaluate_required_expression(condition);
+                self.evaluate_required_block(loop_body);
+            }
+            hir::StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => {
+                if let Some(initializer) = initializer {
+                    self.evaluate_required_statement(initializer);
+                }
+                if let Some(condition) = condition {
+                    self.evaluate_required_expression(condition);
+                }
+                if let Some(step) = step {
+                    self.evaluate_required_statement(step);
+                }
+                self.evaluate_required_block(body);
+            }
+            hir::StmtKind::Break | hir::StmtKind::Continue => {}
         }
     }
 

@@ -148,4 +148,10 @@ pub enum StmtKind {
         condition: Expr,
         body: Block,
     },
+    For {
+        initializer: Option<Box<Stmt>>,
+        condition: Option<Expr>,
+        step: Option<Box<Stmt>>,
+        body: Block,
+    },
 }

@@ -65,6 +65,12 @@ pub enum StmtKind {
         condition: ExprId,
         body: Block,
     },
+    For {
+        initializer: Option<Box<Stmt>>,
+        condition: Option<ExprId>,
+        step: Option<Box<Stmt>>,
+        body: Block,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
