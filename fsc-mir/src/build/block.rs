@@ -81,6 +81,18 @@ impl BodyBuilder<'_> {
             thir::StmtKind::While { condition, body } => {
                 self.lower_while(*condition, body, statement.source);
             }
+            thir::StmtKind::For {
+                initializer,
+                condition,
+                step,
+                body,
+            } => self.lower_for(
+                initializer.as_deref(),
+                *condition,
+                step.as_deref(),
+                body,
+                statement.source,
+            ),
         }
     }
 
@@ -157,6 +169,67 @@ impl BodyBuilder<'_> {
         self.scopes.enter_loop(exit_target, condition_target);
         self.lower_block(body);
         self.scopes.exit_loop(exit_target, condition_target);
+        if self.cfg.has_current_block() {
+            self.cfg.goto(condition_target, lower_source(source));
+        }
+
+        //     exit:
+        //         ...
+        self.cfg.switch_to(exit_target);
+    }
+
+    fn lower_for(
+        &mut self,
+        initializer: Option<&thir::Stmt>,
+        condition: Option<thir::ExprId>,
+        step: Option<&thir::Stmt>,
+        body: &thir::Block,
+        source: thir::SourceInfo,
+    ) {
+        //     current:
+        //         initializer
+        //         goto condition
+        if let Some(initializer) = initializer {
+            self.lower_statement(initializer);
+        }
+        if !self.cfg.has_current_block() {
+            return;
+        }
+
+        let condition_target = self.cfg.new_block();
+        let body_target = self.cfg.new_block();
+        let step_target = self.cfg.new_block();
+        let exit_target = self.cfg.new_block();
+
+        self.cfg.goto(condition_target, lower_source(source));
+
+        //     condition:
+        //         branch condition, body, exit
+        self.cfg.switch_to(condition_target);
+        if let Some(condition) = condition {
+            self.lower_condition_to_targets(condition, body_target, exit_target);
+        } else {
+            self.cfg.goto(body_target, lower_source(source));
+        }
+
+        //     body:
+        //         ...
+        //         goto step
+        self.cfg.switch_to(body_target);
+        self.scopes.enter_loop(exit_target, step_target);
+        self.lower_block(body);
+        self.scopes.exit_loop(exit_target, step_target);
+        if self.cfg.has_current_block() {
+            self.cfg.goto(step_target, lower_source(source));
+        }
+
+        //     step:
+        //         ...
+        //         goto condition
+        self.cfg.switch_to(step_target);
+        if let Some(step) = step {
+            self.lower_statement(step);
+        }
         if self.cfg.has_current_block() {
             self.cfg.goto(condition_target, lower_source(source));
         }
