@@ -13,10 +13,14 @@ pub(crate) fn calculate_call_operand(
     current_offset: u32,
     target_offset: u32,
 ) -> AssemblerResult<i16> {
+    let opoff = calculate_opoff(current_offset, target_offset);
+    i16::try_from(opoff).map_err(|_err| AssemblerError::OperandOutOfRange(opoff))
+}
+
+pub(crate) fn calculate_opoff(current_offset: u32, target_offset: u32) -> i32 {
     let branch_offset =
         target_offset.cast_signed() - (current_offset.cast_signed() + INSTRUCTION_LENGTH);
-    i16::try_from(branch_offset / INSTRUCTION_LENGTH)
-        .map_err(|_err| AssemblerError::OperandOutOfRange(branch_offset))
+    branch_offset / INSTRUCTION_LENGTH
 }
 
 // TODO: find clean way to make this reusable so assembler and this don't have his own versions

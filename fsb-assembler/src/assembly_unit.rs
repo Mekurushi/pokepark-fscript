@@ -1,7 +1,7 @@
-use crate::binary::FscriptBinary;
 use crate::binary::symbol_table::BinarySymbolTable;
+use crate::binary::FscriptBinary;
 use crate::emission::{Opcode, Relocation, RelocationKind};
-use crate::encoding::{InsnWord, calculate_call_operand, encode_relative_jump};
+use crate::encoding::{calculate_call_operand, calculate_opoff, encode_relative_jump, InsnWord};
 use crate::error::{AssemblerError, AssemblerResult};
 use crate::external_data_offsets::ExternalDataOffsets;
 use crate::external_function_offsets::ExternalFunctionOffsets;
@@ -157,10 +157,12 @@ impl AssemblyUnit {
                     let target_offset = external_data
                         .resolve(symbol)
                         .ok_or_else(|| AssemblerError::UndefinedSymbol(symbol.clone()))?;
-                    let operand = calculate_call_operand(relocation.code_offset, target_offset)?;
-                    let operand_bytes = operand.to_be_bytes();
-                    self.code[idx] = operand_bytes[0];
-                    self.code[idx + 1] = operand_bytes[1];
+                    let opoff = calculate_opoff(relocation.code_offset, target_offset);
+                    let instruction = InsnWord::new(Opcode::Lea as u8)
+                        .simm(opoff)
+                        .build()
+                        .to_be_bytes();
+                    self.code[idx..idx + 4].copy_from_slice(&instruction);
                 }
                 RelocationKind::StringOffset { value } => {
                     let string_offset = self
