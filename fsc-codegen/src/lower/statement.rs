@@ -1,7 +1,7 @@
 use super::{block::BlockLowerer, operand::ScalarKind};
 use crate::CodegenResult;
 use fsb_ir::Instruction;
-use fsc_mir::{Operand, Statement, StatementKind};
+use fsc_mir::{ConstValue, Operand, Statement, StatementKind, Ty};
 
 impl BlockLowerer<'_, '_> {
     pub(super) fn lower_statement(&mut self, statement: &Statement) -> CodegenResult<()> {
@@ -26,6 +26,11 @@ impl BlockLowerer<'_, '_> {
     }
 
     fn lower_pause(&mut self, duration: &Operand) -> CodegenResult<()> {
+        if let Some(duration) = immediate_pause_duration(duration) {
+            self.output.push_instruction(Instruction::Delay(duration));
+            return Ok(());
+        }
+
         let duration = self.lower_scalar_operand(duration)?;
         debug_assert_eq!(
             duration,
@@ -35,4 +40,15 @@ impl BlockLowerer<'_, '_> {
         self.output.push_instruction(Instruction::DelayFromStack);
         Ok(())
     }
+}
+
+fn immediate_pause_duration(duration: &Operand) -> Option<i16> {
+    let Operand::Constant(constant) = duration else {
+        return None;
+    };
+    let (ConstValue::Int(value), Ty::Int) = (&constant.value, &constant.ty) else {
+        return None;
+    };
+
+    i16::try_from(*value).ok()
 }
