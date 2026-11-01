@@ -1,9 +1,17 @@
 use super::{block::BlockLowerer, operand::ScalarKind};
-use crate::{CodegenError, CodegenResult, place::resolver::ResolvedPlace};
+use crate::{
+    CodegenError, CodegenResult,
+    place::resolver::{ResolvedPlace, StorageBase},
+};
 use fsb_ir::{Comparison, FloatOperation, Instruction, IntegerOperation};
 use fsc_mir::{
     BinaryOp, ConstValue, Constant, FieldOperand, Operand, Rvalue, Ty, UnaryOp, aggregate_fields,
 };
+
+enum FrameUpdate {
+    Add,
+    Subtract,
+}
 
 impl BlockLowerer<'_, '_> {
     pub(super) fn lower_rvalue_into(
@@ -22,12 +30,70 @@ impl BlockLowerer<'_, '_> {
             }
             Rvalue::Use(operand) => self.lower_operand_into(operand, target),
             Rvalue::Unary { .. } | Rvalue::Binary { .. } => {
+                if self.lower_frame_update(value, target)? {
+                    return Ok(());
+                }
                 self.lower_scalar_rvalue_to_stack(value)?;
                 self.lower_store_word(target)
             }
             Rvalue::Array { elements } => self.lower_array_into(elements, target),
             Rvalue::Aggregate { ty, fields } => self.lower_aggregate_into(ty, fields, target),
         }
+    }
+
+    fn lower_frame_update(
+        &mut self,
+        value: &Rvalue,
+        target: &ResolvedPlace,
+    ) -> CodegenResult<bool> {
+        let Rvalue::Binary { op, lhs, rhs } = value else {
+            return Ok(false);
+        };
+        if target.ty != Ty::Int || !target.indexed_offsets.is_empty() {
+            return Ok(false);
+        }
+        let StorageBase::Frame(base) = &target.base else {
+            return Ok(false);
+        };
+
+        let (operand, update) = match op {
+            BinaryOp::Add if self.operand_matches_place(lhs, target)? => (rhs, FrameUpdate::Add),
+            BinaryOp::Add if self.operand_matches_place(rhs, target)? => (lhs, FrameUpdate::Add),
+            BinaryOp::Subtract if self.operand_matches_place(lhs, target)? => {
+                (rhs, FrameUpdate::Subtract)
+            }
+            _ => return Ok(false),
+        };
+
+        let offset =
+            i16::try_from(target.static_offset).map_err(|_| CodegenError::FrameTooLarge)?;
+        let offset = base.checked_add(offset)?.offset();
+        let operand = self.lower_scalar_operand(operand)?;
+        debug_assert_eq!(
+            operand,
+            ScalarKind::Integer,
+            "MIR integer update operand must have integer type"
+        );
+        let instruction = match update {
+            FrameUpdate::Add => Instruction::AddToFrameSlot(offset),
+            FrameUpdate::Subtract => Instruction::SubtractFromFrameSlot(offset),
+        };
+        self.output.push_instruction(instruction);
+        Ok(true)
+    }
+
+    fn operand_matches_place(
+        &self,
+        operand: &Operand,
+        target: &ResolvedPlace,
+    ) -> CodegenResult<bool> {
+        let Operand::Place(place) = operand else {
+            return Ok(false);
+        };
+
+        self.function
+            .resolve_place(place)
+            .map(|place| place == *target)
     }
 
     pub(super) fn lower_scalar_rvalue_to_stack(
