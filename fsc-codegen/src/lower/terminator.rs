@@ -1,6 +1,6 @@
-use super::{block::BlockLowerer, operand::ScalarKind};
+use super::block::BlockLowerer;
 use crate::CodegenResult;
-use fsb_ir::{BranchKind, BranchMode, ReturnKind};
+use fsb_ir::ReturnKind;
 use fsc_mir::{Place, Terminator, TerminatorKind, Ty};
 
 impl BlockLowerer<'_, '_> {
@@ -13,20 +13,7 @@ impl BlockLowerer<'_, '_> {
                 condition,
                 then_target,
                 else_target,
-            } => {
-                let condition = self.lower_scalar_operand(condition)?;
-                debug_assert_eq!(
-                    condition,
-                    ScalarKind::Bool,
-                    "MIR branch condition must have boolean type"
-                );
-
-                fsb_ir::Terminator::Branch {
-                    kind: BranchKind::IfNonZero(BranchMode::Normal),
-                    taken: self.function.block(*then_target),
-                    not_taken: self.function.block(*else_target),
-                }
-            }
+            } => self.lower_branch(condition, *then_target, *else_target)?,
             TerminatorKind::Return => self.lower_return()?,
             TerminatorKind::Unreachable => todo!("unreachable terminator lowering"),
         };
