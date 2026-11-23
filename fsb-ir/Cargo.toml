@@ -8,7 +8,7 @@ name = "fsb_ir"
 path = "src/lib.rs"
 
 [dependencies]
-cranelift-entity = "=0.132.3"
+cranelift-entity = { workspace = true }
 
 [lints]
 workspace = true

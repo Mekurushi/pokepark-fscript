@@ -16,6 +16,9 @@ members = [
 ]
 resolver = "2"
 
+[workspace.dependencies]
+cranelift-entity = "=0.132.3"
+
 [profile.dev]
 opt-level = 0
 
